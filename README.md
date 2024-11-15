@@ -1,4 +1,4 @@
-This is a very quickly made navigation simulator environemtn, supporting different dynamics, and providing lidar beams.
+This is a very quickly made navigation simulator environment, supporting different dynamics, and providing lidar beams.
 The full code with an example is in ```navigationgym.py```.
 
 If you want to, you can create a conda environment with the required packages by doing:
@@ -8,3 +8,6 @@ If you want to, you can create a conda environment with the required packages by
 and:
 
 ```conda activate navigationtoygym```
+
+
+Code is made by **Morten** and **ChatGPT**.
