@@ -10,4 +10,4 @@ and:
 ```conda activate navigationtoygym```
 
 
-Code is made by **Morten** and **ChatGPT**.
+Code is made by **Morten** and **ChatGPT**. 
