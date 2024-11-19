@@ -80,6 +80,7 @@ class TimeDerivativeFunction(ABC):
     @abstractmethod
     def time_derivative(self, states: np.ndarray | dict[str, np.ndarray]) -> np.ndarray:
         pass
+    
 
 class DiscreteStep(InputOutputBlock):
 
@@ -112,6 +113,21 @@ class HigherOrderRungeKuttaStep(DiscreteStep):
         self.states += (k1 + 2 * k2 + 2 * k3 + k4) / 6
         return self.states
 
+class Dynamics:
+
+    def __init__(self, integrator: DiscreteStep):
+        self.integrator = integrator
+        self._last_u = 0
+
+    def perform_step(self, u: np.ndarray):
+        # Can apply CBF and stuff here
+        self._last_u = u
+        return self.integrator.output(u)
+
+    def get_last_u(self):
+        # Can apply rotation and stuff here
+        return self._last_u
+
 class BaseEnv(ABC):
 
     @abstractmethod
@@ -124,7 +140,7 @@ class BaseEnv(ABC):
 
 class Env(BaseEnv):
 
-    def __init__(self, dynamics: TimeDerivativeFunction, states_0: np.ndarray, dT: float, hidden_steps: int = 10, integrator=HigherOrderRungeKuttaStep):
+    def __init__(self, dynamics: Dynamics, states_0: np.ndarray, dT: float):
         try:
             self.states_0 = states_0.copy()
         except:
@@ -135,14 +151,12 @@ class Env(BaseEnv):
         except:
             self.states = states_0
 
-        self.dt = dT / hidden_steps
-        self.hidden_steps = hidden_steps
-
-        self.dynamics_integrator = integrator(dynamics, states_0, self.dt)
+        self.dt = dT
+        self.dynamics = dynamics
+        #self.dynamics_integrator = integrator(dynamics, states_0, self.dt)
 
     def step(self, u: np.ndarray) -> np.ndarray:
-        for _ in range(self.hidden_steps):
-            self.states = self.dynamics_integrator.output(u)
+        self.states = self.dynamics.perform_step(u)
         return self.states
 
     def reset(self):
@@ -162,8 +176,7 @@ class SimulationEnv(gym.Env):
 
     metadata = {'render.modes': ['human', 'rgb_array']}
 
-    def __init__(self, dynamics: TimeDerivativeFunction, states_0: np.ndarray, dT: float,
-                 hidden_steps: int = 10, integrator=HigherOrderRungeKuttaStep,
+    def __init__(self, dynamics: Dynamics, states_0: np.ndarray, dT: float,
                  render: bool = True, border_margin: int = 50,
                  num_lidar: int = 16, lidar_distance: int = 100,
                  initial_obstacles: int = 10, u_max: int = None):
@@ -171,7 +184,7 @@ class SimulationEnv(gym.Env):
         super(SimulationEnv, self).__init__()
 
         # Initialize the base environment
-        self.env = Env(dynamics, states_0, dT, hidden_steps, integrator)
+        self.env = Env(dynamics, states_0, dT)
         self.DT = dT
 
         self.render_mode = render
@@ -785,26 +798,32 @@ class BicycleCarDynamics(TimeDerivativeFunction):
         return np.array([ax, ay, alpha], dtype=np.float32)
 
 
-class DotDynamicsNormal(TimeDerivativeFunction):
+class DotDynamicsNormal(Dynamics):
 
-    def __init__(self, control_size):
-        self.control_size = control_size
+    class Derivative(TimeDerivativeFunction):
 
-    def _f(self, states: np.ndarray) -> np.ndarray:
-        x, y, theta, v_x, v_y = states
-        return np.array([v_x, v_y, 0.0, 0.0, 0.0])
+        def _f(self, states: np.ndarray) -> np.ndarray:
+            x, y, theta, v_x, v_y = states
+            return np.array([v_x, v_y, 0.0, 0.0, 0.0])
     
 
-    def _G(self, states: np.ndarray) -> np.ndarray:
-        return np.array([[0, 0], 
-                         [0, 0], 
-                         [0, 0], 
-                         [1, 0],
-                         [0, 1]])
+        def _G(self, states: np.ndarray) -> np.ndarray:
+            return np.array([[0, 0], 
+                            [0, 0], 
+                            [0, 0], 
+                            [1, 0],
+                            [0, 1]])
 
-    def time_derivative(self, states: dict[str, np.ndarray]) -> np.ndarray:
-        return self._f(states["states"]) + self._G(states["states"]) @ states["u"].flatten()
-        
+        def time_derivative(self, states: dict[str, np.ndarray]) -> np.ndarray:
+            return self._f(states["states"]) + self._G(states["states"]) @ states["u"].flatten()
+
+
+
+    def __init__(self, control_size, initial_state, dt):
+        super().__init__(integrator=HigherOrderRungeKuttaStep(DotDynamicsNormal.Derivative(), initial_state, dt))
+        self.control_size = control_size
+        self.dt = dt
+    
 
     def map_keys_to_actions(self, keys: list[bool]) -> np.ndarray:
         """
@@ -842,14 +861,12 @@ if __name__ == "__main__":
 
     # x, y, theta, v_x, v_y
     initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float)
-    dynamics = DotDynamicsNormal(control_size=U_MAX)
+    dynamics = DotDynamicsNormal(control_size=U_MAX, initial_state=initial_state, dt=DT)
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
         states_0=initial_state,
         dT=DT,  # Time step
-        hidden_steps=1,  # Number of integration steps per steps
-        integrator=HigherOrderRungeKuttaStep,  # Choose integrator
         render=True,  # Set to False for headless mode
         border_margin=50,  # Margin for inner boundary
         num_lidar=LIDAR_NUM,  # Number of lidar beams
