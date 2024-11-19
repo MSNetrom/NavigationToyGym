@@ -883,12 +883,12 @@ if __name__ == "__main__":
     DT = 1e-2
 
     # x, y, theta, v_x, v_y, omega
-    initial_state = np.array([400, 300, 0.0, 0.0, 0.0, 0.0], dtype=float)
-    dynamics = BicycleCarDynamics(control_size=U_MAX, initial_state=initial_state, dt=DT)
+    #initial_state = np.array([400, 300, 0.0, 0.0, 0.0, 0.0], dtype=float)
+    #dynamics = BicycleCarDynamics(control_size=U_MAX, initial_state=initial_state, dt=DT)
 
     # x, y, theta, v_x, v_y
-    #initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float)
-    #dynamics = DotDynamicsNormal(control_size=U_MAX, initial_state=initial_state, dt=DT)
+    initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float)
+    dynamics = DotDynamicsNormal(control_size=U_MAX, initial_state=initial_state, dt=DT)
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
