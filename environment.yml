@@ -4,6 +4,7 @@ channels:
   - defaults
 dependencies:
   - python=3.13
+  - scipy
   - pip
   - pygame
   - pip:
