@@ -6,6 +6,9 @@ from abc import ABC, abstractmethod
 import gymnasium as gym
 from gymnasium import spaces
 import math
+from pathlib import Path
+import json
+import matplotlib.pyplot as plt
 
 def draw_arrow(
         surface: pygame.Surface,
@@ -124,7 +127,7 @@ class Dynamics(ABC):
         self._last_u = u
         return self.integrator.output(u)
 
-    def get_visibility_u(self):
+    def get_used_u(self):
         # Can apply rotation and stuff here
         return self._last_u
     
@@ -337,6 +340,19 @@ class SimulationEnv(gym.Env):
         observation = np.concatenate((initial_state, lidar_rel_vectors.flatten())).astype(np.float32)
 
         return observation, {}
+    
+    def draw_figure(self, fig):
+
+        if fig['type'] == 'circle':
+            pygame.draw.circle(self.screen, fig['color'],
+                                (int(fig['pos'][0]), int(fig['pos'][1])), fig['radius'])
+        elif fig['type'] == 'rectangle':
+            rect = pygame.Rect(fig['pos'][0], fig['pos'][1],
+                                fig['width'], fig['height'])
+            pygame.draw.rect(self.screen, fig['color'], rect)
+        elif fig['type'] == 'arrow':
+            draw_arrow(self.screen, fig['start'], fig['end'], fig['color'], body_width=10, head_width=20, head_height=20)
+
 
     def render(self):
         """
@@ -356,15 +372,8 @@ class SimulationEnv(gym.Env):
 
         # Draw obstacles, and non-detectable shapes
         for obstacle in self.obstacles + self.non_physics_single_frame_objects:
-            if obstacle['type'] == 'circle':
-                pygame.draw.circle(self.screen, obstacle['color'],
-                                   (int(obstacle['pos'][0]), int(obstacle['pos'][1])), obstacle['radius'])
-            elif obstacle['type'] == 'rectangle':
-                rect = pygame.Rect(obstacle['pos'][0], obstacle['pos'][1],
-                                   obstacle['width'], obstacle['height'])
-                pygame.draw.rect(self.screen, obstacle['color'], rect)
-            elif obstacle['type'] == 'arrow':
-                draw_arrow(self.screen, obstacle['start'], obstacle['end'], obstacle['color'], body_width=10, head_width=20, head_height=20)
+            self.draw_figure(obstacle)
+            
             #elif obstacle['type'] == 'ellipse':
             #    ellipse_rect = pygame.Rect(obstacle['pos'][0], obstacle['pos'][1],
                                        
@@ -469,6 +478,26 @@ class SimulationEnv(gym.Env):
         pygame.display.flip()
 
         self.clock.tick(self.FPS)
+
+    def render_final_figures(self, fig_list, path: str):
+        """
+        Render the final list of figures and save the image.
+        """
+
+        # Draw additional figures
+        for fig in fig_list:
+            self.draw_figure(fig)
+
+        # Update the display to show final figures
+        pygame.display.flip()
+
+        # Save the final image
+        self.save_image(path)
+
+    def save_image(self, filepath: str):
+        """Save the current Pygame screen as a PNG image."""
+        pygame.image.save(self.screen, filepath)
+        print(f"Saved simulation snapshot as {filepath}")
 
     def close(self):
         """
@@ -726,6 +755,9 @@ class SimulationEnv(gym.Env):
         self.bar2_value = val2
 
 
+    
+
+
 class BicycleCarDynamics(Dynamics):
 
     class Derivative(TimeDerivativeFunction):
@@ -792,7 +824,7 @@ class BicycleCarDynamics(Dynamics):
     def get_initial_states(self) -> np.ndarray:
         return self.initial_state
     
-    def get_visibility_u(self):
+    def get_used_u(self):
         # Get current alpha value
         alpha = self.integrator.states[2]
         # Rotate u by this angle
@@ -844,11 +876,13 @@ class DotDynamicsNormal(Dynamics):
 
 
 
-    def __init__(self, dt=1e-2, initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float), control_size=50):
+    def __init__(self, dt=1e-2, initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float), control_size=50,
+                 constant_control: np.ndarray = None):
         super().__init__(integrator=HigherOrderRungeKuttaStep(DotDynamicsNormal.Derivative(), initial_state, dt))
         self.control_size = control_size
         self.dt = dt
         self.initial_state = initial_state
+        self.constant_control = constant_control
 
     def get_initial_states(self) -> np.ndarray:
         return self.initial_state
@@ -859,6 +893,9 @@ class DotDynamicsNormal(Dynamics):
         Map key presses to action vector for DotDynamics.
         [ax, ay, alpha] where alpha is unused.
         """
+        if self.constant_control is not None:
+            return self.constant_control
+
         ax = 0.0
         ay = 0.0
         K = self.control_size
@@ -875,7 +912,8 @@ class DotDynamicsNormal(Dynamics):
         return np.array([ax, ay], dtype=np.float32)
 
 
-def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool):
+def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool, num_steps: int = 1000,
+           results_path: Path = None):
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
@@ -889,7 +927,12 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
     observation, _, = sim_env.reset()
 
-    while True:
+    observation_track = np.zeros((num_steps, observation.shape[0]))
+    u_ref_track = np.zeros((num_steps, 2))
+    u_actual_track = np.zeros((num_steps, 2))
+
+
+    for i in range(num_steps):
         # Fetch Pygame events
         for event in pygame.event.get():
             sim_env.process_event(event)
@@ -901,13 +944,68 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         # Step the environment
         observation, _, done, info = sim_env.step(u, observation)
 
-        u_viz = dynamics.get_visibility_u()
+        u_used = dynamics.get_used_u()
         sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u[:2], 'color': (255, 120, 120)})
-        sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u_viz, 'color': (120, 255, 120)})
+        sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u_used, 'color': (50, 205, 50)})
 
         sim_env.render()
 
-        sim_env.set_bars(*(abs(u_viz[0]), abs(u_viz[1])))
+        sim_env.set_bars(*(abs(u_used[0]), abs(u_used[1])))
+
+        observation_track[i] = observation
+        u_ref_track[i] = u
+        u_actual_track[i] = u_used
+
+    # Do plotting and stuff
+
+    if results_path is not None:
+
+        # Create directory if it doesn't exist
+        results_path.mkdir(parents=True, exist_ok=True)
+
+        fig_list = []
+
+        for i in range(0, num_steps, 10):
+            pos = observation_track[i][:2]
+            fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (138,43,226)})
+
+        # Create drawings in pygame
+        for i in range(0, num_steps, 50):
+            start = observation_track[i][:2]
+            #fig_list.append({"type": "arrow", "start": start, "end": start + u_ref_track[i][:2], "color": (255, 120, 120)})
+            fig_list.append({"type": "arrow", "start": start, "end": start + u_actual_track[i][:2], "color": (50, 205, 50)})
+
+        #fig_list.append({"type": "arrow", "start": [600, 500], "end": [600, 500] + u_ref_track[0][:2], "color": (255, 120, 120)})
+
+        sim_env.render_final_figures(fig_list, results_path / "track.png")
+
+        # Calculate u mean squared error, and save to json
+        u_mse = np.mean((u_ref_track - u_actual_track) ** 2)
+        with open(results_path / "results.json", "w") as f:
+            json.dump({"u_mse": u_mse}, f)
+
+        # Create plots of u_ref and u_actual
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        ax[0].plot(u_ref_track[:, 0], label="u_ref")
+        ax[0].plot(u_actual_track[:, 0], label="u_actual")
+        ax[0].set_title("u_x")
+        ax[0].legend()
+        ax[0].grid()
+        ax[0].set_xlabel("Time Steps")
+        ax[0].set_ylabel("Acceleration")
+
+        ax[1].plot(u_ref_track[:, 1], label="u_ref")
+        ax[1].plot(u_actual_track[:, 1], label="u_actual")
+        ax[1].set_title("u_y")
+        ax[1].legend()
+        ax[1].grid()
+        ax[1].set_xlabel("Time Steps")
+        ax[1].set_ylabel("Acceleration")
+
+        plt.tight_layout()
+        plt.savefig(results_path / "u_plots.pdf")
+    
 
 
 if __name__ == "__main__":
@@ -923,5 +1021,7 @@ if __name__ == "__main__":
          lidar_distance=130,
          lidar_num=32,
          u_max=U_MAX,
-         render=True
+         render=True,
+         results_path=Path("results"),
+         num_steps=500
     )
