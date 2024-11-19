@@ -143,4 +143,5 @@ if __name__ == "__main__":
          render=True,
          num_steps=800,
          results_path=Path("triangle_results"),
+         world_file=Path("worlds/race_track.json")
     )

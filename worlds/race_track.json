@@ -1,0 +1,23 @@
+{
+    "obstacles": [
+        {
+            "type": "circle",
+            "pos": [150, 200],
+            "radius": 30,
+            "color": [255, 0, 0]
+        },
+        {
+            "type": "rectangle",
+            "pos": [300, 400],
+            "width": 50,
+            "height": 100,
+            "color": [0, 255, 0]
+        },
+        {
+            "type": "circle",
+            "pos": [500, 150],
+            "radius": 20,
+            "color": [0, 0, 255]
+        }
+    ]
+}

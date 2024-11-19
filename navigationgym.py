@@ -168,6 +168,23 @@ class Env(BaseEnv):
             self.states = self.dynamics.get_initial_states()
 
         return self.states
+    
+def load_world(filepath: Path) -> list:
+    """
+    Load a world configuration from a JSON file.
+
+    Args:
+        filepath (str): Path to the JSON file containing world definitions.
+
+    Returns:
+        list: A list of obstacle dictionaries.
+    """
+    with open(filepath, 'r') as file:
+        world_data = json.load(file)
+    
+    obstacles = world_data.get("obstacles", [])
+    # Validate and process obstacles if necessary
+    return obstacles
 
 # ============================
 # Gymnasium-Like Simulation Environment
@@ -181,7 +198,8 @@ class SimulationEnv(gym.Env):
     def __init__(self, dynamics: Dynamics,
                  render: bool = True, border_margin: int = 50,
                  num_lidar: int = 16, lidar_distance: int = 100,
-                 initial_obstacles: int = 10, u_max: int = None):
+                 initial_obstacles: int = 10, u_max: int = None,
+                 world_file: Path = None):
         
         super(SimulationEnv, self).__init__()
 
@@ -195,11 +213,6 @@ class SimulationEnv(gym.Env):
         self.initial_obstacles = initial_obstacles
 
         # Observation: [x, y, vx, vy, theta, omega, lidar_relative_vectors_flattened]
-        # Positions: [border_margin, WIDTH - border_margin], [border_margin, HEIGHT - border_margin]
-        # Velocities: [-500, 500] for both axes
-        # Theta: [-pi, pi]
-        # Omega: [-500, 500]
-        # Lidar relative vectors: [-lidar_distance, lidar_distance] for both x and y
         lidar_low = np.full(2 * self.num_lidar, -self.lidar_distance, dtype=np.float32)
         lidar_high = np.full(2 * self.num_lidar, self.lidar_distance, dtype=np.float32)
 
@@ -239,7 +252,6 @@ class SimulationEnv(gym.Env):
         self.dot_color = self.RED
 
         # Inner boundary properties
-        # Adjusted to make room for the bars by reducing the INNER_RECT width
         bar_area_width = 100  # Space allocated for the bars on the right
         self.INNER_RECT = pygame.Rect(
             self.border_margin,
@@ -254,9 +266,16 @@ class SimulationEnv(gym.Env):
         # Obstacles
         self.obstacles = []  # List to store obstacles
 
-        # Initialize with given number of random obstacles
-        for _ in range(self.initial_obstacles):
-            self.add_random_obstacle()
+        self.use_world_file = world_file is not None
+
+        if self.use_world_file:
+            print(f"Loading obstacles from file: {world_file}")
+            self.load_obstacles_from_file(world_file)
+        else:
+            print("No world file provided.")
+            # Initialize with given number of random obstacles
+            for _ in range(self.initial_obstacles):
+                self.add_random_obstacle()
 
         # Clock for controlling frame rate
         self.clock = pygame.time.Clock()
@@ -274,6 +293,33 @@ class SimulationEnv(gym.Env):
         # Define maximum values for scaling bars
         self.bar1_max = u_max if u_max is not None else 1.0
         self.bar2_max = u_max if u_max is not None else 1.0
+
+    def load_obstacles_from_file(self, filepath: str):
+        """
+        Load obstacles from a JSON file.
+
+        Args:
+            filepath (str): Path to the JSON file.
+        """
+        loaded_obstacles = load_world(filepath)
+        for obj in loaded_obstacles:
+            if obj['type'] == 'circle':
+                self.obstacles.append({
+                    'type': 'circle',
+                    'pos': np.array(obj['pos'], dtype=float),
+                    'radius': obj['radius'],
+                    'color': tuple(obj['color'])
+                })
+            elif obj['type'] == 'rectangle':
+                self.obstacles.append({
+                    'type': 'rectangle',
+                    'pos': np.array(obj['pos'], dtype=float),
+                    'width': obj['width'],
+                    'height': obj['height'],
+                    'color': tuple(obj['color'])
+                })
+            else:
+                print(f"Unknown obstacle type: {obj['type']}")
 
     def step(self, action: np.ndarray, observation: np.ndarray):
         """
@@ -323,8 +369,8 @@ class SimulationEnv(gym.Env):
         self.env.reset()
         initial_state = self.env.states.copy()
 
-        # Reset obstacles
-        if self.render_mode:
+        # Reset obstacles only if not using a world file
+        if not self.use_world_file:
             self.obstacles.clear()
             for _ in range(self.initial_obstacles):
                 self.add_random_obstacle()
@@ -913,7 +959,7 @@ class DotDynamicsNormal(Dynamics):
 
 
 def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool, num_steps: int = 1000,
-           results_path: Path = None):
+           results_path: Path = None, world_file: Path = None):
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
@@ -923,6 +969,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         lidar_distance=lidar_distance,  # Maximum lidar distance
         initial_obstacles=15, 
         u_max=u_max,
+        world_file=world_file
     )
 
     observation, _, = sim_env.reset()
@@ -1023,5 +1070,6 @@ if __name__ == "__main__":
          u_max=U_MAX,
          render=True,
          results_path=Path("results"),
-         num_steps=500
+         num_steps=500,
+         world_file=Path("worlds/race_track.json")
     )
