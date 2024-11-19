@@ -119,7 +119,7 @@ class Dynamics(ABC):
         self.integrator = integrator
         self._last_u = 0
 
-    def perform_step(self, u: np.ndarray):
+    def perform_step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
         # Can apply CBF and stuff here
         self._last_u = u
         return self.integrator.output(u)
@@ -154,15 +154,15 @@ class Env(BaseEnv):
 
         self.dynamics = dynamics
 
-    def step(self, u: np.ndarray) -> np.ndarray:
-        self.states = self.dynamics.perform_step(u)
+    def step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
+        self.states = self.dynamics.perform_step(u, observation)
         return self.states
 
     def reset(self):
         try:
-            self.states = dynamics.get_initial_states().copy()
+            self.states = self.dynamics.get_initial_states().copy()
         except:
-            self.states = dynamics.get_initial_states()
+            self.states = self.dynamics.get_initial_states()
 
         return self.states
 
@@ -272,7 +272,7 @@ class SimulationEnv(gym.Env):
         self.bar1_max = u_max if u_max is not None else 1.0
         self.bar2_max = u_max if u_max is not None else 1.0
 
-    def step(self, action: np.ndarray):
+    def step(self, action: np.ndarray, observation: np.ndarray):
         """
         Perform one step in the environment.
 
@@ -290,7 +290,7 @@ class SimulationEnv(gym.Env):
         u = action  # Shape (3,) for [ax, ay, alpha]
 
         # Step the physics
-        new_state = self.env.step(u)
+        new_state = self.env.step(u, observation)
 
         # Compute lidar relative vectors
         lidar_rel_vectors = self.get_lidar_relative_vectors()
@@ -428,12 +428,14 @@ class SimulationEnv(gym.Env):
         bar1_fill_height = (self.bar1_value / self.bar1_max) * bar_max_height
         bar1_fill_height = max(0, min(bar_max_height, bar1_fill_height))  # Clamp to [0, bar_max_height]
 
+        #print((bar2_x, bar_y, bar_width, bar_max_height))
+
         # Draw Bar 1 Filled
         pygame.draw.rect(self.screen, self.BLUE, 
-                         (bar1_x, bar_y + bar_max_height - bar1_fill_height, bar_width, bar1_fill_height))
+                         (int(bar1_x), int(bar_y + bar_max_height - bar1_fill_height), int(bar_width), int(bar1_fill_height)))
 
         # Draw Bar 2 Outline
-        pygame.draw.rect(self.screen, self.BLACK, (bar2_x, bar_y, bar_width, bar_max_height), bar_outline_thickness)
+        pygame.draw.rect(self.screen, self.BLACK, (int(bar2_x), int(bar_y), int(bar_width), int(bar_max_height)), bar_outline_thickness)
 
         # Calculate Bar 2 Filled Height
         bar2_fill_height = (self.bar2_value / self.bar2_max) * bar_max_height
@@ -441,7 +443,7 @@ class SimulationEnv(gym.Env):
 
         # Draw Bar 2 Filled
         pygame.draw.rect(self.screen, self.GREEN, 
-                         (bar2_x, bar_y + bar_max_height - bar2_fill_height, bar_width, bar2_fill_height))
+                         (int(bar2_x), int(bar_y + bar_max_height - bar2_fill_height), int(bar_width), int(bar2_fill_height)))
 
         # Add Labels for Bars
         label1 = self.font.render("Ax", True, self.BLACK)
@@ -842,7 +844,7 @@ class DotDynamicsNormal(Dynamics):
 
 
 
-    def __init__(self, control_size, initial_state, dt):
+    def __init__(self, dt=1e-2, initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float), control_size=50):
         super().__init__(integrator=HigherOrderRungeKuttaStep(DotDynamicsNormal.Derivative(), initial_state, dt))
         self.control_size = control_size
         self.dt = dt
@@ -873,35 +875,19 @@ class DotDynamicsNormal(Dynamics):
         return np.array([ax, ay], dtype=np.float32)
 
 
-
-if __name__ == "__main__":
-
-    LIDAR_DISTANCE = 100
-    LIDAR_NUM = 32
-    RENDER = True # Set to False for headless mode
-    U_MAX = 50
-    DT = 1e-2
-
-    # x, y, theta, v_x, v_y, omega
-    #initial_state = np.array([400, 300, 0.0, 0.0, 0.0, 0.0], dtype=float)
-    #dynamics = BicycleCarDynamics(control_size=U_MAX, initial_state=initial_state, dt=DT)
-
-    # x, y, theta, v_x, v_y
-    initial_state = np.array([400, 300, 0.0, 0.0, 0.0], dtype=float)
-    dynamics = DotDynamicsNormal(control_size=U_MAX, initial_state=initial_state, dt=DT)
+def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool):
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
-        render=True,  # Set to False for headless mode
+        render=render,  # Set to False for headless mode
         border_margin=50,  # Margin for inner boundary
-        num_lidar=LIDAR_NUM,  # Number of lidar beams
-        lidar_distance=LIDAR_DISTANCE,  # Maximum lidar distance
+        num_lidar=lidar_num,  # Number of lidar beams
+        lidar_distance=lidar_distance,  # Maximum lidar distance
         initial_obstacles=15, 
-        u_max=U_MAX,
+        u_max=u_max,
     )
 
     observation, _, = sim_env.reset()
-    lidar_vecs = observation[len(initial_state):].reshape((LIDAR_NUM, 2))
 
     while True:
         # Fetch Pygame events
@@ -912,15 +898,30 @@ if __name__ == "__main__":
         keys = pygame.key.get_pressed()
         u = dynamics.map_keys_to_actions(keys)
 
-        state = sim_env.env.states.copy()
-
         # Step the environment
-        observation, _, done, info = sim_env.step(u)
-        lidar_vecs = observation[len(initial_state):].reshape((LIDAR_NUM, 2))
+        observation, _, done, info = sim_env.step(u, observation)
 
         u_viz = dynamics.get_visibility_u()
+        sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u[:2], 'color': (255, 120, 120)})
         sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u_viz, 'color': (120, 255, 120)})
 
         sim_env.render()
 
-        sim_env.set_bars(*(abs(u[0]), abs(u[1])))
+        sim_env.set_bars(*(abs(u_viz[0]), abs(u_viz[1])))
+
+
+if __name__ == "__main__":
+
+    U_MAX = 50
+
+    # Set dynamics and parameters
+    dynamics = DotDynamicsNormal(dt=1e-2, control_size=U_MAX)
+    
+    # Run the simulation
+    runner(
+         dynamics=dynamics,
+         lidar_distance=130,
+         lidar_num=32,
+         u_max=U_MAX,
+         render=True
+    )
