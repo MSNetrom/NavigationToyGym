@@ -232,7 +232,7 @@ class SimulationEnv(gym.Env):
         self.LIDAR_COLOR = (0, 255, 0)  # Green color for lidar lines
 
         # Dot properties
-        self.dot_radius = 10
+        self.dot_radius = 0
         self.dot_color = self.RED
 
         # Inner boundary properties
