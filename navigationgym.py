@@ -967,7 +967,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         border_margin=50,  # Margin for inner boundary
         num_lidar=lidar_num,  # Number of lidar beams
         lidar_distance=lidar_distance,  # Maximum lidar distance
-        initial_obstacles=30, 
+        initial_obstacles=0, 
         u_max=u_max,
         world_file=world_file
     )
@@ -1017,10 +1017,10 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
             fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (138,43,226)})
 
         # Create drawings in pygame
-        for i in range(0, num_steps, 50):
-            start = observation_track[i][:2]
+        #for i in range(0, num_steps, 50):
+        #    start = observation_track[i][:2]
             #fig_list.append({"type": "arrow", "start": start, "end": start + u_ref_track[i][:2], "color": (255, 120, 120)})
-            fig_list.append({"type": "arrow", "start": start, "end": start + u_actual_track[i][:2], "color": (50, 205, 50)})
+        #    fig_list.append({"type": "arrow", "start": start, "end": start + u_actual_track[i][:2], "color": (50, 205, 50)})
 
         #fig_list.append({"type": "arrow", "start": [600, 500], "end": [600, 500] + u_ref_track[0][:2], "color": (255, 120, 120)})
 
@@ -1051,7 +1051,52 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         ax[1].set_ylabel("Acceleration")
 
         plt.tight_layout()
-        plt.savefig(results_path / "u_plots.pdf")
+        fig.savefig(results_path / "u_plots.pdf")
+        fig.close()
+
+        # Create plots for velocity
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        ax[0].plot(observation_track[:, 3], label="v_x")
+        ax[0].set_title("Velocity x")
+        ax[0].legend()
+        ax[0].grid()
+        ax[0].set_xlabel("Time Steps")
+        ax[0].set_ylabel("Velocity")
+
+        ax[1].plot(observation_track[:, 4], label="v_y")
+        ax[1].set_title("Velocity y")
+        ax[1].legend()
+        ax[1].grid()
+        ax[1].set_xlabel("Time Steps")
+        ax[1].set_ylabel("Velocity")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "velocity_plots.pdf")
+        fig.close()
+
+        # Create plots for position
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        ax[0].plot(observation_track[:, 0], label="x")
+        ax[0].set_title("Position x")
+        ax[0].legend()
+        ax[0].grid()
+        ax[0].set_xlabel("Time Steps")
+        ax[0].set_ylabel("Position")
+
+        ax[1].plot(observation_track[:, 1], label="y")
+        ax[1].set_title("Position y")
+        ax[1].legend()
+        ax[1].grid()
+        ax[1].set_xlabel("Time Steps")
+        ax[1].set_ylabel("Position")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "position_plots.pdf")
+        fig.close()
+
+    sim_env.close()
     
 
 

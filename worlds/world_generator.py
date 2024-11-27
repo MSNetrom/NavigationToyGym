@@ -184,4 +184,4 @@ if __name__ == "__main__":
     )
 
     # Example usage
-    tight_track_generator(path_margin=2.5, rectangle_size=60)
+    tight_track_generator(path_margin=2.7, rectangle_size=60)

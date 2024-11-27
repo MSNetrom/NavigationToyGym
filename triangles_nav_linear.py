@@ -135,6 +135,7 @@ if __name__ == "__main__":
     dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=1, p2=2, control_size=U_MAX,
                                              initial_state=np.array([51.0, 51.0, 0.0, 0.0, 0.0]),
                                              constant_control=np.array([U_MAX, U_MAX]))
+            
 
     # Run the simulation
     runner(
