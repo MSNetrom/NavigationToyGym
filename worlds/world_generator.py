@@ -1,4 +1,5 @@
 import json
+import random
 
 def tight_track_generator(
     screen_width=600,
@@ -58,5 +59,129 @@ def tight_track_generator(
     
     print(f"Generated tight_track.json with {len(obstacles)} obstacles.")
 
+def generate_random_obstacles_quadrant(
+    screen_width=800,
+    screen_height=600,
+    num_obstacles=20,
+    rectangle_size_range=(30, 100),  # (min_width, max_width) and (min_height, max_height)
+    circle_radius_range=(15, 50),
+    obstacle_types=['rectangle', 'circle'],
+    output_file='random_track.json'
+):
+    obstacles = []
+
+    for _ in range(num_obstacles):
+        # Random position
+        x = random.randint(50, screen_width - 50)
+
+        y = 0
+        if x < screen_width // 2:
+            y = random.randint(50 + (screen_height-50) // 2, screen_height - 50)
+        else:
+            y = random.randint(50, (screen_height-50))
+
+        ob_type = random.choice(obstacle_types)
+
+        # Random size
+        if ob_type == 'rectangle':
+            width = random.randint(rectangle_size_range[0], rectangle_size_range[1])
+            height = random.randint(rectangle_size_range[0], rectangle_size_range[1])
+            obstacles.append({
+                "type": "rectangle",
+                "pos": [x, y],
+                "width": width,
+                "height": height,
+                "color": [128, 128, 128]
+            })
+        elif ob_type == 'circle':
+            radius = random.randint(circle_radius_range[0], circle_radius_range[1])
+            obstacles.append({
+                "type": "circle",
+                "pos": [x, y],
+                "radius": radius,
+                "color": [128, 128, 128]
+            })
+
+    # Write to JSON file
+    with open(output_file, "w") as f:
+        json.dump({
+            "screen_size": [screen_width, screen_height],
+            "obstacles": obstacles
+        }, f, indent=4)
+
+    print(f"Generated {output_file} with {len(obstacles)} obstacles.")
+
+def generate_random_obstacles(
+    screen_width=800,
+    screen_height=600,
+    num_obstacles=20,
+    rectangle_size_range=(30, 100),  # (min_width, max_width) and (min_height, max_height)
+    circle_radius_range=(15, 50),
+    obstacle_types=['rectangle', 'circle'],
+    output_file='random_track.json'
+):
+    obstacles = []
+
+    for _ in range(num_obstacles):
+        # Random position
+        x = random.randint(60, screen_width - 200)
+
+        y = random.randint(60, screen_height- 100)
+
+        ob_type = random.choice(obstacle_types)
+
+        # Random size
+        if ob_type == 'rectangle':
+            width = random.randint(rectangle_size_range[0], rectangle_size_range[1])
+            height = random.randint(rectangle_size_range[0], rectangle_size_range[1])
+            obstacles.append({
+                "type": "rectangle",
+                "pos": [x, y],
+                "width": width,
+                "height": height,
+                "color": [128, 128, 128]
+            })
+        elif ob_type == 'circle':
+            radius = random.randint(circle_radius_range[0], circle_radius_range[1])
+            obstacles.append({
+                "type": "circle",
+                "pos": [x, y],
+                "radius": radius,
+                "color": [128, 128, 128]
+            })
+
+    # Write to JSON file
+    with open(output_file, "w") as f:
+        json.dump({
+            "screen_size": [screen_width, screen_height],
+            "obstacles": obstacles
+        }, f, indent=4)
+
+    print(f"Generated {output_file} with {len(obstacles)} obstacles.")
+
+
+
 # Example usage
-tight_track_generator(path_margin=2.5, rectangle_size=60)
+if __name__ == "__main__":
+    generate_random_obstacles_quadrant(
+        screen_width=800,
+        screen_height=600,
+        num_obstacles=30,
+        rectangle_size_range=(30, 100),
+        circle_radius_range=(15, 50),
+        obstacle_types=['rectangle', 'circle'],
+        output_file='random_track_q.json'
+    )
+
+    generate_random_obstacles(
+        screen_width=800,
+        screen_height=600,
+        num_obstacles=20,
+        rectangle_size_range=(30, 100),
+        circle_radius_range=(15, 50),
+        obstacle_types=['rectangle', 'circle'],
+        output_file='random_track.json'
+    )
+
+    # Example usage
+    tight_track_generator(path_margin=2.5, rectangle_size=60)

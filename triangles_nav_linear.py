@@ -128,6 +128,8 @@ class DotDynamicsNormalTrianglesCBF(DotDynamicsNormal):
 
 if __name__ == "__main__":
 
+    #tra
+
     U_MAX = 50.0
      
     dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=1, p2=2, control_size=U_MAX,
@@ -141,7 +143,10 @@ if __name__ == "__main__":
          lidar_num=32,
          u_max=U_MAX,
          render=True,
-         num_steps=800,
+         num_steps=8000,
          results_path=Path("triangle_results"),
-         world_file=Path("worlds/race_track.json")
+         world_file=Path("worlds/random_track_sparse.json")
+         #world_file=Path("worlds/random_track_quadrant.json")
+         #world_file=Path("worlds/zigzag_tight_track.json")
+         #world_file=Path("worlds/tight_track.json")
     )

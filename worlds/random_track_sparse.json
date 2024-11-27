@@ -1,0 +1,279 @@
+{
+    "screen_size": [
+        800,
+        600
+    ],
+    "obstacles": [
+        {
+            "type": "rectangle",
+            "pos": [
+                287,
+                76
+            ],
+            "width": 86,
+            "height": 61,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                392,
+                411
+            ],
+            "width": 72,
+            "height": 82,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                340,
+                212
+            ],
+            "radius": 35,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                533,
+                304
+            ],
+            "width": 99,
+            "height": 53,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                191,
+                171
+            ],
+            "width": 45,
+            "height": 90,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                141,
+                394
+            ],
+            "width": 34,
+            "height": 97,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                133,
+                231
+            ],
+            "radius": 22,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                553,
+                353
+            ],
+            "width": 45,
+            "height": 36,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                97,
+                493
+            ],
+            "radius": 44,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                352,
+                189
+            ],
+            "width": 45,
+            "height": 66,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                282,
+                299
+            ],
+            "radius": 26,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                132,
+                394
+            ],
+            "width": 81,
+            "height": 97,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                464,
+                171
+            ],
+            "radius": 28,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                148,
+                164
+            ],
+            "radius": 44,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                184,
+                420
+            ],
+            "radius": 30,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                126,
+                228
+            ],
+            "radius": 47,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                561,
+                164
+            ],
+            "width": 32,
+            "height": 44,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                488,
+                324
+            ],
+            "width": 87,
+            "height": 75,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "circle",
+            "pos": [
+                89,
+                413
+            ],
+            "radius": 18,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        },
+        {
+            "type": "rectangle",
+            "pos": [
+                244,
+                378
+            ],
+            "width": 53,
+            "height": 44,
+            "color": [
+                128,
+                128,
+                128
+            ]
+        }
+    ]
+}

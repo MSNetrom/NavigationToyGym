@@ -967,7 +967,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         border_margin=50,  # Margin for inner boundary
         num_lidar=lidar_num,  # Number of lidar beams
         lidar_distance=lidar_distance,  # Maximum lidar distance
-        initial_obstacles=15, 
+        initial_obstacles=30, 
         u_max=u_max,
         world_file=world_file
     )
