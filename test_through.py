@@ -19,11 +19,11 @@ if __name__ == "__main__":
         U_MAX = 50.0
      
         dynamics_tri = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=1.95, p2=1, control_size=U_MAX,
-                                                initial_state=np.array([51.0, 51.0, 0.0, 0.0, 0.0]),
+                                                initial_state=np.array([65.0, 65.0, 0.0, 0.0, 0.0]),
                                                 constant_control=np.array([U_MAX, U_MAX]))
         
         dynamics_soft = DotDynamicsNormalSoftMin(dt=1e-2, radius=10, u_max=U_MAX, p1=2.55, p2=2,
-                                                 initial_state=np.array([51.0, 51.0, 0.0, 0.0, 0.0]),
+                                                 initial_state=np.array([65.0, 65.0, 0.0, 0.0, 0.0]),
                                                  constant_control=np.array([U_MAX, U_MAX]))
 
         runner(

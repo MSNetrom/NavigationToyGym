@@ -1052,7 +1052,25 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         plt.tight_layout()
         fig.savefig(results_path / "u_plots.pdf")
-        fig.close()
+        plt.close()
+
+        # Create plot for u size
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+        u_ref_size = np.linalg.norm(u_ref_track, axis=1)
+        u_actual_size = np.linalg.norm(u_actual_track, axis=1)
+
+        ax.plot(u_ref_size, label="u_ref")
+        ax.plot(u_actual_size, label="u_actual")
+        ax.set_title("u Size")
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("Time Steps")
+        ax.set_ylabel("Acceleration")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "u_size_plot.pdf")
+        plt.close()
 
         # Create plots for velocity
         fig, ax = plt.subplots(2, 1, figsize=(10, 8))
@@ -1073,7 +1091,23 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         plt.tight_layout()
         fig.savefig(results_path / "velocity_plots.pdf")
-        fig.close()
+        plt.close()
+
+        # Plot for velocity size
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+        velocity_size = np.linalg.norm(observation_track[:, 3:5], axis=1)
+
+        ax.plot(velocity_size, label="Velocity")
+        ax.set_title("Velocity Size")
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("Time Steps")
+        ax.set_ylabel("Velocity")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "velocity_size_plot.pdf")
+        plt.close()
 
         # Create plots for position
         fig, ax = plt.subplots(2, 1, figsize=(10, 8))
@@ -1094,7 +1128,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         plt.tight_layout()
         fig.savefig(results_path / "position_plots.pdf")
-        fig.close()
+        plt.close()
 
     sim_env.close()
     
