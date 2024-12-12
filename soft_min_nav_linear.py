@@ -1,4 +1,5 @@
 import numpy as np
+from pathlib import Path
 
 from cbf_tools import FirstOrderGeneralLie, SoftMinLie, single_exponential_cbf_solver
 from navigationgym import DotDynamicsNormal, runner
@@ -31,9 +32,9 @@ class MultiObjectCBF2Order(FirstOrderGeneralLie):
 class DotDynamicsNormalSoftMin(DotDynamicsNormal):
 
     def __init__(self, dt: float, radius: float, u_max: float, p1: float, p2: float, initial_state: np.ndarray = np.array([80.0, 80.0, 0.0, 0.0, 0.0]),
-                    constant_control: np.ndarray = None):
+                    constant_control: np.ndarray = None, k: float = 5):
         super().__init__(dt=dt, initial_state=initial_state, constant_control=constant_control)
-        self.soft_min_cbf = SoftMinLie([MultiObjectCBF2Order(radius, u_max, p1)], k=5)
+        self.soft_min_cbf = SoftMinLie([MultiObjectCBF2Order(radius, u_max, p1)], k=k)
         self.radius = radius
         self.u_max = u_max
         self.p2 = p2
@@ -52,13 +53,15 @@ if __name__ == "__main__":
     
     U_MAX = 50
      
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=10, u_max=U_MAX, p1=2, p2=1)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=1.5, u_max=U_MAX, p1=3, p2=2, k=2)
 
     # Run the simulation
     runner(
          dynamics=dynamics,
-         lidar_distance=130,
+         lidar_distance=100,
          lidar_num=32,
          u_max=U_MAX,
-         render=True
+         render=True,
+         world_file=Path("worlds/random_track_sparse.json"),
+         num_steps=10000,
     )

@@ -7,6 +7,12 @@ def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.nd
         pos_vector = 0
         vel_vector = states[3:5]
 
+        #lidar_vecs = lidar_vecs - 15*lidar_vecs/np.linalg.norm(lidar_vecs, axis=1)[:, np.newaxis]
+        #print(lidar_vecs)
+
+        # Move all tops backwards in the direction of the normal vector between them,
+        # And such that they still intersect as they should
+
         # Shift lidar vecs, lidar_vec[i] = lidar_vec[i-1]
         lidars_shifted = np.zeros_like(lidar_vecs)
         lidars_shifted[:-1] = lidar_vecs[1:]
@@ -132,20 +138,19 @@ if __name__ == "__main__":
 
     U_MAX = 50.0
      
-    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=1, p2=2, control_size=U_MAX,
-                                             initial_state=np.array([51.0, 51.0, 0.0, 0.0, 0.0]),
-                                             constant_control=np.array([U_MAX, U_MAX]))
+    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=3, p2=2, control_size=U_MAX,
+                                             initial_state=np.array([70.0, 70.0, 0.0, 0.0, 0.0]))
             
 
     # Run the simulation
     runner(
          dynamics=dynamics,
-         lidar_distance=130,
+         lidar_distance=100,
          lidar_num=32,
          u_max=U_MAX,
          render=True,
-         num_steps=8000,
-         results_path=Path("triangle_results"),
+         num_steps=10000,
+         #results_path=Path("triangle_results"),
          world_file=Path("worlds/random_track_sparse.json")
          #world_file=Path("worlds/random_track_quadrant.json")
          #world_file=Path("worlds/zigzag_tight_track.json")
