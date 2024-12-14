@@ -321,6 +321,45 @@ class SimulationEnv(gym.Env):
             else:
                 print(f"Unknown obstacle type: {obj['type']}")
 
+    def check_collision(self, state: np.ndarray) -> bool:
+        """
+        Check if the agent (treated as a point mass) collided with any obstacle.
+
+        Parameters:
+            state (np.ndarray): The current state of the agent [x, y, theta, vx, vy, ...].
+
+        Returns:
+            bool: True if collided, False otherwise.
+        """
+        x, y, *_ = state
+
+        for obstacle in self.obstacles:
+            if obstacle['type'] == 'circle':
+                # Distance between agent point and circle center
+                dx = x - obstacle['pos'][0]
+                dy = y - obstacle['pos'][1]
+                dist = np.sqrt(dx**2 + dy**2)
+
+                # If agent is inside the obstacle's radius, collision
+                if dist < obstacle['radius']:
+                    return True
+
+            elif obstacle['type'] == 'rectangle':
+                # Check if point lies within the rectangle boundaries
+                rect_left = obstacle['pos'][0]
+                rect_top = obstacle['pos'][1]
+                rect_right = rect_left + obstacle['width']
+                rect_bottom = rect_top + obstacle['height']
+
+                if rect_left <= x <= rect_right and rect_top <= y <= rect_bottom:
+                    return True
+
+        # Optionally, check if outside boundary is considered a crash
+        if not self.INNER_RECT.collidepoint(x, y):
+            return True
+
+        return False
+
     def step(self, action: np.ndarray, observation: np.ndarray):
         """
         Perform one step in the environment.
@@ -350,8 +389,10 @@ class SimulationEnv(gym.Env):
         # Episode never ends in this setup
         done = False
 
+        crash = self.check_collision(new_state)
+
         # No additional info
-        info = {}
+        info = {"crash": crash}
 
         # Observation includes state and lidar relative vectors
         observation = np.concatenate((new_state, lidar_rel_vectors.flatten())).astype(np.float32)
@@ -959,7 +1000,7 @@ class DotDynamicsNormal(Dynamics):
 
 
 def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool, num_steps: int = 1000,
-           results_path: Path = None, world_file: Path = None):
+           results_path: Path = None, world_file: Path = None, initial_obstacles: int = 0):
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
@@ -967,7 +1008,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         border_margin=50,  # Margin for inner boundary
         num_lidar=lidar_num,  # Number of lidar beams
         lidar_distance=lidar_distance,  # Maximum lidar distance
-        initial_obstacles=0, 
+        initial_obstacles=initial_obstacles,
         u_max=u_max,
         world_file=world_file
     )
@@ -990,6 +1031,9 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         # Step the environment
         observation, _, done, info = sim_env.step(u, observation)
+
+        #if info["crash"]:
+        #    print(f"Crashed!{i}")
 
         u_used = dynamics.get_used_u()
         sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u[:2], 'color': (255, 120, 120)})
