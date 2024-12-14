@@ -234,7 +234,7 @@ class SimulationEnv(gym.Env):
         # Screen dimensions
         self.WIDTH, self.HEIGHT = 800, 600
 
-        if self.render_mode:
+        if self.render_mode == True:
             self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
             pygame.display.set_caption("Gymnasium Simulation Environment")
 
@@ -321,7 +321,7 @@ class SimulationEnv(gym.Env):
             else:
                 print(f"Unknown obstacle type: {obj['type']}")
 
-    def check_collision(self, state: np.ndarray) -> bool:
+    def check_collision(self, state: np.ndarray, i) -> bool:
         """
         Check if the agent (treated as a point mass) collided with any obstacle.
 
@@ -333,6 +333,10 @@ class SimulationEnv(gym.Env):
         """
         x, y, *_ = state
 
+        if i > 100:
+            print("x:", x, "y:", y)
+            print("Obstacle:",  self.obstacles[0]['pos'][0], self.obstacles[0]['pos'][1])
+
         for obstacle in self.obstacles:
             if obstacle['type'] == 'circle':
                 # Distance between agent point and circle center
@@ -342,7 +346,7 @@ class SimulationEnv(gym.Env):
 
                 # If agent is inside the obstacle's radius, collision
                 if dist < obstacle['radius']:
-                    return True
+                    return True, dist - obstacle['radius']
 
             elif obstacle['type'] == 'rectangle':
                 # Check if point lies within the rectangle boundaries
@@ -351,16 +355,29 @@ class SimulationEnv(gym.Env):
                 rect_right = rect_left + obstacle['width']
                 rect_bottom = rect_top + obstacle['height']
 
-                if rect_left <= x <= rect_right and rect_top <= y <= rect_bottom:
-                    return True
+                if rect_left < x < rect_right and rect_top < y < rect_bottom:
+                    return True, max(
+                        rect_left - x,
+                        x - rect_right,
+                        rect_top - y,
+                        y - rect_bottom
+                    )
 
         # Optionally, check if outside boundary is considered a crash
         if not self.INNER_RECT.collidepoint(x, y):
-            return True
+            # Return collision margin
+            # Check collesion distance of inner rect
+            dist = max(
+                self.INNER_RECT.left - x,
+                x - self.INNER_RECT.right,
+                self.INNER_RECT.top - y,
+                y - self.INNER_RECT.bottom
+            )
+            return True, dist
 
-        return False
+        return False, 0
 
-    def step(self, action: np.ndarray, observation: np.ndarray):
+    def step(self, action: np.ndarray, observation: np.ndarray, i):
         """
         Perform one step in the environment.
 
@@ -389,10 +406,10 @@ class SimulationEnv(gym.Env):
         # Episode never ends in this setup
         done = False
 
-        crash = self.check_collision(new_state)
+        crash, dist = self.check_collision(new_state, i)
 
         # No additional info
-        info = {"crash": crash}
+        info = {"crash": crash, "crash_distance": dist}
 
         # Observation includes state and lidar relative vectors
         observation = np.concatenate((new_state, lidar_rel_vectors.flatten())).astype(np.float32)
@@ -409,6 +426,7 @@ class SimulationEnv(gym.Env):
         """
         self.env.reset()
         initial_state = self.env.states.copy()
+        print("Initial State:", initial_state)
 
         # Reset obstacles only if not using a world file
         if not self.use_world_file:

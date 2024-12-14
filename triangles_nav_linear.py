@@ -116,7 +116,7 @@ def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.nd
 
 class DotDynamicsNormalTrianglesCBF(DotDynamicsNormal):
       
-    def __init__(self, dt: float, p1: float, p2: float, control_size: float, initial_state: np.ndarray, constant_control: np.ndarray = None):
+    def __init__(self, dt: float, p1: float, p2: float, initial_state: np.ndarray, control_size: float = None, constant_control: np.ndarray = None):
         super().__init__(dt, control_size=control_size, initial_state=initial_state, constant_control=constant_control)
         self.p1 = p1
         self.p2 = p2
