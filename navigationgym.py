@@ -1028,7 +1028,7 @@ class DotDynamicsNormal(Dynamics):
 
 
 def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: float, render: bool, num_steps: int = 1000,
-           results_path: Path = None, world_file: Path = None, initial_obstacles: int = 0):
+           results_path: Path = None, world_file: Path = None, initial_obstacles: int = 0, dt: float = None):
 
     sim_env = SimulationEnv(
         dynamics=dynamics,
@@ -1079,6 +1079,16 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
     if results_path is not None:
 
+        # Set global font sizes
+        plt.rcParams.update({
+            'font.size': 18,          # Default text size
+            'axes.titlesize': 22,     # Axes title size
+            'axes.labelsize': 20,     # Axes label size
+            'legend.fontsize': 18,    # Legend font size
+            'xtick.labelsize': 16,    # X-axis tick label size
+            'ytick.labelsize': 16,    # Y-axis tick label size
+        })
+
         # Create directory if it doesn't exist
         results_path.mkdir(parents=True, exist_ok=True)
 
@@ -1106,20 +1116,22 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         # Create plots of u_ref and u_actual
         fig, ax = plt.subplots(2, 1, figsize=(10, 8))
 
-        ax[0].plot(u_ref_track[:, 0], label="u_ref")
-        ax[0].plot(u_actual_track[:, 0], label="u_actual")
-        ax[0].set_title("u_x")
+        #r'$\alpha_1$'
+        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$')
+        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$')
+        ax[0].set_title(r'$u_x$')
         ax[0].legend()
         ax[0].grid()
-        ax[0].set_xlabel("Time Steps")
+        ax[0].set_xlabel("Time [s]")
         ax[0].set_ylabel("Acceleration")
 
-        ax[1].plot(u_ref_track[:, 1], label="u_ref")
-        ax[1].plot(u_actual_track[:, 1], label="u_actual")
-        ax[1].set_title("u_y")
+        #ax[1].plot(u_ref_track[:, 1], label=r'$u_\text{ref}$')
+        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$')
+        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$')
+        ax[1].set_title(r'$u_y$')
         ax[1].legend()
         ax[1].grid()
-        ax[1].set_xlabel("Time Steps")
+        ax[1].set_xlabel("Time [s]")
         ax[1].set_ylabel("Acceleration")
 
         plt.tight_layout()
@@ -1132,9 +1144,9 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         u_ref_size = np.linalg.norm(u_ref_track, axis=1)
         u_actual_size = np.linalg.norm(u_actual_track, axis=1)
 
-        ax.plot(u_ref_size, label="u_ref")
-        ax.plot(u_actual_size, label="u_actual")
-        ax.set_title("u Size")
+        ax.plot(u_ref_size, label=r'$u_\text{ref}$')
+        ax.plot(u_actual_size, label=r'$u_\text{actual}$')
+        ax.set_title(r'$\|u|\$')
         ax.legend()
         ax.grid()
         ax.set_xlabel("Time Steps")

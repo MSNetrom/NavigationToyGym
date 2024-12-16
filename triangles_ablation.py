@@ -242,7 +242,7 @@ if __name__ == "__main__":
     #print(crashed)
     args = [
         (NUM_STEPS, DT, LIDAR_NUM, RENDER, INITIAL_OBSTACLES, U_MAX, REPEAT_STEPS_RANGE, ALPHA_RANGE, LIDAR_RANGE, random.randint(0, 2**32))
-        for i in range(10)
+        for i in range(1000)
     ]
 
     # Run many simulations using multiprocessing with starmap

@@ -16,11 +16,22 @@ def read_and_plot_results(results_dir: Path):
     fig, ax = plt.subplots()
     #ax.scatter(results[:, 1], results[:, 2], c=results[:, 0], cmap='coolwarm')
     # Plot as red if crashed, green if not
-    ax.scatter(results[results[:, 0] == 1, 1], results[results[:, 0] == 1, 2], c='red', label="Crashed")
-    ax.scatter(results[results[:, 0] == 0, 1], results[results[:, 0] == 0, 2], c='green', label="Not crashed")
+    ax.scatter(results[results[:, 0] == 0, 1], results[results[:, 0] == 0, 2], c='green', label=f"Not crashed: {np.sum(results[:, 0] == 0)}", alpha=0.5)
+    ax.scatter(results[results[:, 0] == 1, 1], results[results[:, 0] == 1, 2], c='red', label=f"Crashed: {np.sum(results[:, 0] == 1)}", alpha=0.5)
 
-    ax.set_xlabel("Alpha 1")
-    ax.set_ylabel("Alpha 2")
+    ax.legend(
+        loc='upper left',
+        bbox_to_anchor=(0, 1.11),
+        borderaxespad=0.,  # No padding between the axes and the legend
+        ncol=2,
+        fontsize=15,
+        #title='Crash Status'
+    )
+
+    ax.set_xlabel(r'$\alpha_1$', fontsize=15)
+    ax.set_ylabel(r'$\alpha_2$', fontsize=15)
+
+    ax.tick_params(axis='both', which='major', labelsize=14)
     
     # Save as pdf
     fig.savefig(results_dir / "scatter.pdf")
@@ -38,11 +49,25 @@ def read_and_plot_results(results_dir: Path):
 
     res_small_dist = results[(results[:, 4] > 0.5) | (results[:, 0] == 0)]
 
-    ax.scatter(res_small_dist[res_small_dist[:, 0] == 1, 1], res_small_dist[res_small_dist[:, 0] == 1, 2], c='red', label="Crashed")
-    ax.scatter(res_small_dist[res_small_dist[:, 0] == 0, 1], res_small_dist[res_small_dist[:, 0] == 0, 2], c='green', label="Not crashed")
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 0, 1], res_small_dist[res_small_dist[:, 0] == 0, 2], c='green', label=f"Not crashed: {np.sum(res_small_dist[:, 0] == 0)}", alpha=0.5)
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 1, 1], res_small_dist[res_small_dist[:, 0] == 1, 2], c='red', label=f"Crashed: {np.sum(res_small_dist[:, 0] == 1)}", alpha=0.5)
 
-    ax.set_xlabel("Alpha 1")
-    ax.set_ylabel("Alpha 2")
+    #ax.legend()
+
+    ax.legend(
+        loc='upper left',
+        bbox_to_anchor=(0, 1.11),
+        borderaxespad=0.,  # No padding between the axes and the legend
+        ncol=2,
+        fontsize=15,
+        #title='Crash Status'
+    )
+
+    ax.set_xlabel(r'$\alpha_1$', fontsize=15)
+    ax.set_ylabel(r'$\alpha_2$', fontsize=15)
+
+    ax.tick_params(axis='both', which='major', labelsize=14)
+
     fig.savefig(results_dir / "scatter_no_small_dist.pdf")
 
     # Plot distances of crashes

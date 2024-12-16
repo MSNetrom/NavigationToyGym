@@ -139,7 +139,7 @@ if __name__ == "__main__":
 
     U_MAX = 50.0
      
-    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=2, p2=3, control_size=U_MAX,
+    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=2, p2=1.09, control_size=U_MAX,
                                              initial_state=np.array([70.0, 70.0, 0.0, 0.0, 0.0]))
             
 
@@ -147,12 +147,12 @@ if __name__ == "__main__":
     runner(
          dynamics=dynamics,
          lidar_distance=130,
-         lidar_num=32,
+         lidar_num=64,
          u_max=U_MAX,
          render=True,
          num_steps=10000,
          #results_path=Path("triangle_results"),
-         world_file=Path("worlds/random_track_sparse.json")
+         #world_file=Path("worlds/random_track_sparse.json")
          #world_file=Path("worlds/random_track_quadrant.json")
          #world_file=Path("worlds/zigzag_tight_track.json")
          #world_file=Path("worlds/tight_track.json")

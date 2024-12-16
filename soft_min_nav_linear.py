@@ -53,15 +53,15 @@ if __name__ == "__main__":
     
     U_MAX = 50
      
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=1.5, u_max=U_MAX, p1=3, p2=2, k=2)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2, k=0.01)
 
     # Run the simulation
     runner(
          dynamics=dynamics,
-         lidar_distance=100,
-         lidar_num=32,
+         lidar_distance=130,
+         lidar_num=64,
          u_max=U_MAX,
          render=True,
-         world_file=Path("worlds/random_track_sparse.json"),
+         #world_file=Path('worlds/tight_track.json'),
          num_steps=10000,
     )
