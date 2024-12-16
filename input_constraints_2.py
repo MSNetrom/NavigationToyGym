@@ -1,0 +1,180 @@
+import pygame
+import numpy as np
+import cvxpy as cp
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# Parameters
+dt = 0.01  # Time step, 100 Hz
+
+# control input u
+acceleration = 1.2  # Control acceleration (m/s^2)
+#state x
+position, velocity, u_hat = 0.6, 0.0, 0.0  # Initial position and velocity (start at x > 0 for safety)
+
+kappa = 5
+#gamma = 4.0  # Parameter for the exponential CBF
+p = 6.0
+alpha_1 = p  # Gain for alpha(h)
+alpha_2 = p  # Gain for alpha(h)
+h_alpha = p  # Gain for h_alpha
+u_max = 1
+
+# Data lists for plots
+time_data = []
+h_x_data = []
+u_hat_desired_data = []
+u_safe_data = []
+
+# Pygame setup
+pygame.init()
+width, height = 800, 700  # Increased height to fit plots
+screen = pygame.display.set_mode((width, height))
+pygame.display.set_caption("1D Double Integrator with Safety Filter (CBF)")
+clock = pygame.time.Clock()
+
+# Constants for visual representation
+center_x = width // 2
+scale = 100  # Scaling factor to convert meters to pixels
+
+# Matplotlib setup for real-time plotting
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(6, 3.5))
+fig.subplots_adjust(hspace=0.4)  # Space between plots
+canvas = FigureCanvas(fig)
+
+# Plot settings
+ax1.set_title("Constraint Value h(x) over Time")
+ax1.set_xlabel("Time (s)")
+ax1.set_ylabel("h(x) = Position")
+ax1.axhline(0, color="red", linestyle="--")  # Safety boundary line
+
+ax2.set_title("Reference and Safe Acceleration over Time")
+ax2.set_xlabel("Time (s)")
+ax2.set_ylabel("Acceleration (m/s²)")
+ax2.legend(["Desired Acceleration", "Safe Acceleration"], loc="upper right")
+
+# Run the simulation
+running = True
+time_elapsed = 0.0
+while running:
+    # Handle events
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            running = False
+
+    # Read keyboard input
+    keys = pygame.key.get_pressed()
+    u_hat_desired = 0  # Reset desired control input
+    if keys[pygame.K_LEFT]:
+        u_hat_desired = -acceleration
+    elif keys[pygame.K_RIGHT]:
+        u_hat_desired = acceleration
+
+    # Safety Filter (Control Barrier Function)
+    # Define state x
+    x = np.array([position, velocity, u_hat])
+
+    # Barrier function h(x) = position
+    h_1 = u_hat + (alpha_1 + alpha_2)*velocity + alpha_1*alpha_2*position
+    Lg_h_1 = 1
+    Lf_h_1 = (alpha_1 + alpha_2 -1)*u_hat + alpha_1*alpha_2*velocity
+
+    # input constraints
+    h_2 = u_max - u_hat
+    Lg_h_2 = -1
+    Lf_h_2 = u_hat
+    # define composite CBF
+    h_composite = -np.log(np.exp(-kappa*h_1) + np.exp(-kappa*h_2)) / kappa
+
+    # compute it's Lie derivatives
+    Lf_h_composite = np.exp(-kappa*(h_1-h_composite))*Lf_h_1 + np.exp(-kappa*(h_2-h_composite))*Lf_h_2
+    Lg_h_composite = np.exp(-kappa*(h_1-h_composite))*Lg_h_1 + np.exp(-kappa*(h_2-h_composite))*Lg_h_2
+
+    #print("H_1: ", h_x, nu_2)
+    #print("H_2: ", 
+
+    # Simple controller
+    mu_desired = (u_hat + 10*(u_hat_desired - u_hat)) #/ (C_c*B_c) 
+
+    # Set up and solve QP
+    mu = cp.Variable()
+    objective = cp.Minimize((mu - mu_desired) ** 2)  # Minimize deviation from desired control input
+    cbf_constraint = Lg_h_composite * mu + Lf_h_composite + h_alpha * h_composite >= 0
+    constraints = [cbf_constraint]
+    problem = cp.Problem(objective, constraints)
+    problem.solve()
+
+    #print(mu.value, Lg_h_composite, Lf_h_composite + h_alpha * h_composite)
+
+    if problem.status != cp.OPTIMAL:
+        print("QP Infeasible at time:", time_elapsed)
+        mu_value = mu_desired  # Use a safe fallback control input
+    else:
+        mu_value = mu.value
+
+    h_dot = Lg_h_composite * mu.value + Lf_h_composite
+
+    #print("Dot product:", Lg_nu_2 * Lg_phi_2)
+
+    #print("h:", h_composite, "h_dot:", h_dot)
+    #print("phi_1:", phi_1, np.exp(-kappa*(phi_1-h_composite))*Lg_phi_1)
+    #print("phi_2:", np.exp(-kappa*(phi_2-h_composite))*Lg_phi_2)
+    #print("nu_2:", np.exp(-kappa*(nu_2-h_composite))*Lg_nu_2)
+    print(Lg_h_composite, Lf_h_composite)
+
+    #if h_composite <= 1e-3:
+    #    input()
+
+    # Apply filtered control input if feasible, otherwise set u to zero
+    """if problem.status == cp.OPTIMAL:
+        u_filtered = u_hat
+    else:
+        u_filtered = 0.0  # Default to zero if no feasible solution is found"""
+
+    # Double integrator update
+    u_hat += dt*(-u_hat + mu.value)
+    velocity += u_hat * dt
+    position += velocity * dt
+
+    # Store data for plots
+    time_data.append(time_elapsed)
+    h_x_data.append(position)
+    u_hat_desired_data.append(u_hat_desired)
+    u_safe_data.append(u_hat)
+    time_elapsed += dt
+
+    # Clear screen and draw Pygame elements
+    screen.fill((255, 255, 255))  # White background
+    pos_pixel = int(center_x + position * scale)
+    pygame.draw.line(screen, (255, 0, 0), (center_x, 0), (center_x, height // 2), 2)  # Draw red constraint line at x=0
+    pygame.draw.circle(screen, (0, 0, 255), (pos_pixel, height // 4), 10)  # Draw particle in upper half of screen
+
+    # Update Matplotlib plots
+    ax1.clear()
+    ax1.plot(time_data, h_x_data, label="h(x) = Position", color="blue")
+    ax1.axhline(0, color="red", linestyle="--")  # Safety boundary line
+    ax1.set_title("Constraint Value h(x) over Time")
+    ax1.set_xlabel("Time (s)")
+    ax1.set_ylabel("h(x) = Position")
+
+    ax2.clear()
+    ax2.plot(time_data, u_hat_desired_data, label="Desired Acceleration", color="green")
+    ax2.plot(time_data, u_safe_data, label="Safe Acceleration", color="purple")
+    ax2.set_title("Reference and Safe Acceleration over Time")
+    ax2.set_xlabel("Time (s)")
+    ax2.set_ylabel("Acceleration (m/s²)")
+    ax2.legend(loc="upper right")
+
+    # Render the updated Matplotlib figure to a pygame-compatible image
+    canvas.draw()
+    plot_image = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+    plot_image = plot_image.reshape(canvas.get_width_height()[::-1] + (3,))
+    plot_surface = pygame.surfarray.make_surface(plot_image.swapaxes(0, 1))  # Adjust for pygame's coordinate system
+
+    # Blit the plot in the lower half of the pygame window
+    screen.blit(plot_surface, (0, height // 2))  # Position the plot at the bottom half of the window
+
+    pygame.display.flip()
+    clock.tick(100)  # Run at 100 Hz
+
+pygame.quit()
