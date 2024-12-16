@@ -10,10 +10,11 @@ if __name__ == "__main__":
 
     U_MAX = 50.0
 
-    dynamics = DotDynamicsNormal(dt=1e-2, control_size=U_MAX)
+    #dynamics = DotDynamicsNormal(dt=1e-2, control_size=U_MAX)
     
-    #dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=10, u_max=U_MAX, p1=2.55, p2=2,
-    #                                    initial_state=np.array([80.0, 250.0, 0.0, 0.0, 0.0])) # 42 / 43
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=10, u_max=U_MAX, p1=2.55, p2=2,
+                                        initial_state=np.array([80.0, 250.0, 0.0, 0.0, 0.0]),
+                                        constant_control=np.array([30.0, 30.0]))
             
 
     # Run the simulation
@@ -23,6 +24,6 @@ if __name__ == "__main__":
          lidar_num=32,
          u_max=U_MAX,
          render=True,
-         num_steps=3000,
+         num_steps=10000,
          initial_obstacles=30,
     )

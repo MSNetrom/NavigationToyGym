@@ -321,7 +321,7 @@ class SimulationEnv(gym.Env):
             else:
                 print(f"Unknown obstacle type: {obj['type']}")
 
-    def check_collision(self, state: np.ndarray, i) -> bool:
+    def check_collision(self, state: np.ndarray) -> tuple[bool, float]:
         """
         Check if the agent (treated as a point mass) collided with any obstacle.
 
@@ -329,24 +329,23 @@ class SimulationEnv(gym.Env):
             state (np.ndarray): The current state of the agent [x, y, theta, vx, vy, ...].
 
         Returns:
-            bool: True if collided, False otherwise.
+            Tuple[bool, float]: (Collision status, Crash distance)
+                - Collision status: True if collided, False otherwise.
+                - Crash distance: Positive value indicating penetration depth or breach distance.
         """
         x, y, *_ = state
-
-        if i > 100:
-            print("x:", x, "y:", y)
-            print("Obstacle:",  self.obstacles[0]['pos'][0], self.obstacles[0]['pos'][1])
 
         for obstacle in self.obstacles:
             if obstacle['type'] == 'circle':
                 # Distance between agent point and circle center
                 dx = x - obstacle['pos'][0]
                 dy = y - obstacle['pos'][1]
-                dist = np.sqrt(dx**2 + dy**2)
+                dist = math.hypot(dx, dy)  # Equivalent to np.sqrt(dx**2 + dy**2)
 
                 # If agent is inside the obstacle's radius, collision
                 if dist < obstacle['radius']:
-                    return True, dist - obstacle['radius']
+                    penetration_depth = obstacle['radius'] - dist  # Positive value
+                    return True, penetration_depth
 
             elif obstacle['type'] == 'rectangle':
                 # Check if point lies within the rectangle boundaries
@@ -356,26 +355,37 @@ class SimulationEnv(gym.Env):
                 rect_bottom = rect_top + obstacle['height']
 
                 if rect_left < x < rect_right and rect_top < y < rect_bottom:
-                    return True, max(
-                        rect_left - x,
-                        x - rect_right,
-                        rect_top - y,
-                        y - rect_bottom
-                    )
+                    # Calculate penetration depths towards each side
+                    dist_left = x - rect_left
+                    dist_right = rect_right - x
+                    dist_top = y - rect_top
+                    dist_bottom = rect_bottom - y
 
-        # Optionally, check if outside boundary is considered a crash
+                    # Find the smallest penetration depth
+                    penetration_depth = min(dist_left, dist_right, dist_top, dist_bottom)
+                    return True, penetration_depth
+
+        # Check if outside inner boundary is considered a crash
         if not self.INNER_RECT.collidepoint(x, y):
-            # Return collision margin
-            # Check collesion distance of inner rect
-            dist = max(
-                self.INNER_RECT.left - x,
-                x - self.INNER_RECT.right,
-                self.INNER_RECT.top - y,
-                y - self.INNER_RECT.bottom
-            )
-            return True, dist
+            # Compute breach depth towards the nearest wall
+            breach_depths = []
+            if x < self.INNER_RECT.left:
+                breach_depths.append(self.INNER_RECT.left - x)
+            elif x > self.INNER_RECT.right:
+                breach_depths.append(x - self.INNER_RECT.right)
 
-        return False, 0
+            if y < self.INNER_RECT.top:
+                breach_depths.append(self.INNER_RECT.top - y)
+            elif y > self.INNER_RECT.bottom:
+                breach_depths.append(y - self.INNER_RECT.bottom)
+
+            # Ensure we have at least one breach depth
+            if breach_depths:
+                breach_depth = min(breach_depths)
+                return True, breach_depth
+
+        # No collision detected
+        return False, 0.0
 
     def step(self, action: np.ndarray, observation: np.ndarray, i):
         """
@@ -406,7 +416,7 @@ class SimulationEnv(gym.Env):
         # Episode never ends in this setup
         done = False
 
-        crash, dist = self.check_collision(new_state, i)
+        crash, dist = self.check_collision(new_state)
 
         # No additional info
         info = {"crash": crash, "crash_distance": dist}
@@ -487,16 +497,16 @@ class SimulationEnv(gym.Env):
 
         # Draw the dot/car
         x, y, theta, *_ = self.env.states
-        dot_center = (int(x), int(y))
+        #dot_center = (int(x), int(y))
 
         # Draw rotated rectangle to indicate orientation
-        rect_length = 40  # Increased length for better visibility
-        rect_width = 20
-        rect = pygame.Surface((rect_length, rect_width), pygame.SRCALPHA)
-        rect.fill(self.dot_color)
-        rotated_rect = pygame.transform.rotate(rect, -math.degrees(theta))
-        rect_rect = rotated_rect.get_rect(center=dot_center)
-        self.screen.blit(rotated_rect, rect_rect.topleft)
+        #rect_length = 40  # Increased length for better visibility
+        #rect_width = 20
+        #rect = pygame.Surface((rect_length, rect_width), pygame.SRCALPHA)
+        #rect.fill(self.dot_color)
+        #rotated_rect = pygame.transform.rotate(rect, -math.degrees(theta))
+        #rect_rect = rotated_rect.get_rect(center=dot_center)
+        #self.screen.blit(rotated_rect, rect_rect.topleft)
 
         # Draw lidar lines
         self.draw_lidar()
@@ -1048,10 +1058,10 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         u = dynamics.map_keys_to_actions(keys)
 
         # Step the environment
-        observation, _, done, info = sim_env.step(u, observation)
+        observation, _, done, info = sim_env.step(u, observation, i)
 
         #if info["crash"]:
-        #    print(f"Crashed!{i}")
+        #    print(f"Crash detected at step {i} with distance {info['crash_distance']}")
 
         u_used = dynamics.get_used_u()
         sim_env.add_single_frame_non_physics_object({'type': 'arrow', 'start': observation[:2], 'end': observation[:2] + u[:2], 'color': (255, 120, 120)})

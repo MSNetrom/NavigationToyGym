@@ -15,7 +15,7 @@ def h_2(x, v, u, a_1, a_2, a, u_max, beta) -> float:
 def softmin(x, v, u, a_1, a_2, a, u_max, beta):
 
     # Compute the softmin
-    return np.log(np.exp(-beta * h_1(x, v, u, a_1, a_2, a, u_max, beta)) + np.exp(-beta * h_2(x, v, u, a_1, a_2, a, u_max, beta))) / beta
+    return - np.log(np.exp(-beta * h_1(x, v, u, a_1, a_2, a, u_max, beta)) + np.exp(-beta * h_2(x, v, u, a_1, a_2, a, u_max, beta))) / beta
 
 def h_1_equal_h2_get_u(x, v, a_1, a_2, a, u_max, beta):
 
@@ -24,7 +24,7 @@ def h_1_equal_h2_get_u(x, v, a_1, a_2, a, u_max, beta):
     return u
 
 def RHS(x, v, u, a_1, a_2, a, u_max, beta) -> float:
-    return - ((a_1 + a_2) * u - a_2 * a_1 * v) / 2 - softmin(x, v, u, a_1, a_2, a, u_max, beta)
+    return - (a_1 + a_2) * u / 2 - a_2 * a_1 * v / 2 - a*softmin(x, v, u, a_1, a_2, a, u_max, beta)
 
 
 if __name__ == "__main__":
@@ -38,11 +38,11 @@ if __name__ == "__main__":
 
         x = np.random.uniform(0, 10)
         v = np.random.uniform(-100, 0)
-        u_max = np.random.uniform(0, 10)
-        a_1 = np.random.uniform(0.0001, 10)
+        u_max = np.random.uniform(0, 100)
+        a_1 = np.random.uniform(0.0001, 100)
         a_2 = np.random.uniform(0.0001, 10)
-        a = np.random.uniform(0.0001, 10)
-        beta = np.random.uniform(0.0001, 3)
+        a = np.random.uniform(0.0001, 100)
+        beta = np.random.uniform(2, 4)
 
         u = h_1_equal_h2_get_u(x, v, a_1, a_2, a, u_max, beta)
 

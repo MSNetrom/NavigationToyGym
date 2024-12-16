@@ -62,6 +62,7 @@ def ablation_core_runner(dynamics: Dynamics, lidar_distance: float, lidar_num: i
     #u_actual_track = np.zeros((num_steps, 2))
 
     crashed = False
+    distance = 0
     for i in range(num_steps):
         # Fetch Pygame events
         #for event in pygame.event.get():
@@ -77,9 +78,18 @@ def ablation_core_runner(dynamics: Dynamics, lidar_distance: float, lidar_num: i
         observation, _, done, info = sim_env.step(u, observation, j)
 
         #print(i, info)
+        crashed = crashed | info["crash"]
+        distance = max(distance, info["crash_distance"])
 
         if info["crash"]:
-            return True, i, info["crash_distance"]
+
+            if i % 20 == 0:
+                print("Crashed at step:", i, "Distance:", info["crash_distance"])
+
+            if crashed and i == 0:
+                return True, i, info["crash_distance"]
+            
+            #return True, i, info["crash_distance"]
 
         u_used = dynamics.get_used_u()
 
@@ -97,7 +107,7 @@ def ablation_core_runner(dynamics: Dynamics, lidar_distance: float, lidar_num: i
         #u_ref_track[i] = u
         #u_actual_track[i] = u_used
 
-    return crashed, num_steps, 0
+    return crashed, num_steps, distance
 
 def ablation_runner(NUM_STEPS, DT, LIDAR_NUM, RENDER, INITIAL_OBSTACLES, U_MAX, REPEAT_STEPS_RANGE, ALPHA_RANGE, LIDAR_RANGE, seed) -> tuple[bool, float, float, float]:
 
@@ -167,13 +177,35 @@ def read_and_plot_results(results_dir: Path):
     # Save as pdf
     fig.savefig(results_dir / "scatter.pdf")
 
-    # Also make a heatmap of failures
+    # Make plot with histogram for lidar distance and crash
     fig, ax = plt.subplots()
-    ax.hist2d(results[results[:, 0] == 1, 1], results[results[:, 0] == 1, 2], bins=20, cmap='coolwarm')
+    ax.hist(results[results[:, 0] == 1, 3], bins=20, color='red', alpha=0.5, label="Crashed")
+    ax.set_xlabel("Lidar distance")
+    ax.set_ylabel("Frequency")
+    fig.savefig(results_dir / "hist_lidar.pdf")
+
+
+    # Make scatter plot where we exclude crash distances smaller than 1
+    fig, ax = plt.subplots()
+
+    res_small_dist = results[(results[:, 4] > 0.5) | (results[:, 0] == 0)]
+
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 1, 1], res_small_dist[res_small_dist[:, 0] == 1, 2], c='red', label="Crashed")
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 0, 1], res_small_dist[res_small_dist[:, 0] == 0, 2], c='green', label="Not crashed")
+
     ax.set_xlabel("Alpha 1")
     ax.set_ylabel("Alpha 2")
-    fig.colorbar(ax.pcolormesh)
-    fig.savefig(results_dir / "hist2d_fails.pdf")
+    fig.savefig(results_dir / "scatter_no_small_dist.pdf")
+
+    # Plot distances of crashes
+    fig, ax = plt.subplots()
+
+    ax.hist(results[results[:, 0] == 1, 4], bins=20, color='red', alpha=0.5, label="Crashed")
+    ax.set_xlabel("Crash distance")
+    ax.set_ylabel("Frequency")
+    fig.savefig(results_dir / "hist_crash_dist.pdf")
+
+    print("Crash distances:", results[results[:, 0] == 1, 4])
 
 
 
@@ -194,28 +226,32 @@ if __name__ == "__main__":
 
     # Constants
     RENDER = False
-    NUM_STEPS = 4000
-    DT = 1e-2
-    LIDAR_NUM = 64
+    NUM_STEPS = 3000
+    DT = 1e-2 # 1e-2
+    LIDAR_NUM = 64 #64
     INITIAL_OBSTACLES = 30
 
     # Random variables intervals
-    U_MAX = 200
-    REPEAT_STEPS_RANGE = (5, 500)
-    ALPHA_RANGE = (0.01, 15)
-    LIDAR_RANGE = (10, 800)
+    U_MAX = 150 # 200
+    REPEAT_STEPS_RANGE = (5, 500) #
+    ALPHA_RANGE = (0.01, 10) # 15
+    LIDAR_RANGE = (10, 500) # 800
 
     # Prepare the list of arguments for each process
     #crashed, alpha_1, alpha_2, lidar_distance = ablation_runner(NUM_STEPS, DT, LIDAR_NUM, RENDER, INITIAL_OBSTACLES, U_MAX, REPEAT_STEPS_RANGE, ALPHA_RANGE, LIDAR_RANGE)
     #print(crashed)
     args = [
         (NUM_STEPS, DT, LIDAR_NUM, RENDER, INITIAL_OBSTACLES, U_MAX, REPEAT_STEPS_RANGE, ALPHA_RANGE, LIDAR_RANGE, random.randint(0, 2**32))
-        for i in range(3)
+        for i in range(10)
     ]
 
     # Run many simulations using multiprocessing with starmap
-    with Pool(processes=12, initializer=init_pool_processes) as p:
+    with Pool(processes=6, initializer=init_pool_processes) as p:
         results = p.starmap(ablation_runner, args)
+
+    #results = []
+    #for arg in args:
+    #    results.append(ablation_runner(*arg))
 
     # Save results to a file
     results_dir = Path("ablation_results")

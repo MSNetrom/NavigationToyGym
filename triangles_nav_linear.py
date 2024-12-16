@@ -1,6 +1,7 @@
 import numpy as np
 from pathlib import Path
 from navigationgym import DotDynamicsNormal, runner
+        
 
 def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.ndarray, p1: float, p2: float) -> np.ndarray:
     # Get pos and vel vector
@@ -138,14 +139,14 @@ if __name__ == "__main__":
 
     U_MAX = 50.0
      
-    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=3, p2=2, control_size=U_MAX,
+    dynamics = DotDynamicsNormalTrianglesCBF(dt=1e-2, p1=2, p2=3, control_size=U_MAX,
                                              initial_state=np.array([70.0, 70.0, 0.0, 0.0, 0.0]))
             
 
     # Run the simulation
     runner(
          dynamics=dynamics,
-         lidar_distance=100,
+         lidar_distance=130,
          lidar_num=32,
          u_max=U_MAX,
          render=True,
