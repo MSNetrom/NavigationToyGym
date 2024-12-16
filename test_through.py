@@ -16,9 +16,9 @@ if __name__ == "__main__":
     LIDAR_NUM = 64
     DT = 1e-2
 
-    for track, results_name, num_steps in [('worlds/tight_track.json', 'tight_track', 1000),
-                                ('worlds/random_track_quadrant.json', 'random_track_quadrant', 2000),
-                                ('worlds/zigzag_tight_track.json', 'zigzag_tight_track', 2300)]:
+    for track, results_name, num_steps in [('worlds/tight_track.json', 'tight_track', 1500),
+                                ('worlds/random_track_quadrant.json', 'random_track_quadrant', 2500),
+                                ('worlds/zigzag_tight_track.json', 'zigzag_tight_track', 2800)]:
      
         dynamics_tri = DotDynamicsNormalTrianglesCBF(dt=DT, p1=2, p2=1.09, control_size=U_MAX,
                                                 initial_state=np.array([65.0, 65.0, 0.0, 0.0, 0.0]),

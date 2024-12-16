@@ -1119,8 +1119,16 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         #r'$\alpha_1$'
         ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$')
         ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$')
+
+        # Mark the point in which we reach x > 550 and y > 450 using a red vertical line
+        cross_index = np.where((observation_track[:, 0] > 550) & (observation_track[:, 1] > 450))[0]
+
+        if len(cross_index) > 0:
+            ax[0].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
+
         ax[0].set_title(r'$u_x$')
-        ax[0].legend()
+        #Set position as down left
+        ax[0].legend(loc='lower left')
         ax[0].grid()
         ax[0].set_xlabel("Time [s]")
         ax[0].set_ylabel("Acceleration")
@@ -1128,8 +1136,12 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         #ax[1].plot(u_ref_track[:, 1], label=r'$u_\text{ref}$')
         ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$')
         ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$')
+
+        if len(cross_index) > 0:
+            ax[1].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
+
         ax[1].set_title(r'$u_y$')
-        ax[1].legend()
+        ax[1].legend(loc='lower left')
         ax[1].grid()
         ax[1].set_xlabel("Time [s]")
         ax[1].set_ylabel("Acceleration")

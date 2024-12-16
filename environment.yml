@@ -10,3 +10,4 @@ dependencies:
   - pygame
   - pip:
     - gymnasium
+    - cvxpy
