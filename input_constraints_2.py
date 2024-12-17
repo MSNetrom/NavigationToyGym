@@ -174,8 +174,8 @@ plt.rcParams.update({
 fig1, axs1 = plt.subplots(4, 1, figsize=(12, 18), sharex=True)
 
 # Subplot 1: Control Input μ
-axs1[0].plot(time_data, mu_data, label=r"$\mu$", color="orange")
-axs1[0].set_ylabel(r"$\mu$")
+axs1[0].plot(time_data, mu_data, label=r"$\tau$", color="orange")
+axs1[0].set_ylabel(r"$\tau$")
 axs1[0].legend(loc="upper right")
 axs1[0].grid(True)
 
