@@ -16,8 +16,8 @@ def read_and_plot_results(results_dir: Path):
     fig, ax = plt.subplots()
     #ax.scatter(results[:, 1], results[:, 2], c=results[:, 0], cmap='coolwarm')
     # Plot as red if crashed, green if not
-    ax.scatter(results[results[:, 0] == 0, 1], results[results[:, 0] == 0, 2], c='green', label=f"Not crashed: {np.sum(results[:, 0] == 0)}", alpha=0.5)
-    ax.scatter(results[results[:, 0] == 1, 1], results[results[:, 0] == 1, 2], c='red', label=f"Crashed: {np.sum(results[:, 0] == 1)}", alpha=0.5)
+    ax.scatter(results[results[:, 0] == 0, 1], results[results[:, 0] == 0, 2], c='green', label=f"No collision: {np.sum(results[:, 0] == 0)}", alpha=0.5)
+    ax.scatter(results[results[:, 0] == 1, 1], results[results[:, 0] == 1, 2], c='red', label=f"Collision: {np.sum(results[:, 0] == 1)}", alpha=0.5)
 
     ax.legend(
         loc='upper left',
@@ -49,8 +49,8 @@ def read_and_plot_results(results_dir: Path):
 
     res_small_dist = results[(results[:, 4] > 0.5) | (results[:, 0] == 0)]
 
-    ax.scatter(res_small_dist[res_small_dist[:, 0] == 0, 1], res_small_dist[res_small_dist[:, 0] == 0, 2], c='green', label=f"Not crashed: {np.sum(res_small_dist[:, 0] == 0)}", alpha=0.5)
-    ax.scatter(res_small_dist[res_small_dist[:, 0] == 1, 1], res_small_dist[res_small_dist[:, 0] == 1, 2], c='red', label=f"Crashed: {np.sum(res_small_dist[:, 0] == 1)}", alpha=0.5)
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 0, 1], res_small_dist[res_small_dist[:, 0] == 0, 2], c='green', label=f"No collision: {np.sum(res_small_dist[:, 0] == 0)}", alpha=0.5)
+    ax.scatter(res_small_dist[res_small_dist[:, 0] == 1, 1], res_small_dist[res_small_dist[:, 0] == 1, 2], c='red', label=f"Collision: {np.sum(res_small_dist[:, 0] == 1)}", alpha=0.5)
 
     #ax.legend()
 
