@@ -106,7 +106,7 @@ class RotationalCBF2Order(FirstOrderGeneralLie):
             
             # g(r, dot_r) = [(-dot_r_2 * (r^T J R Λ R^T r)), (dot_r_1 * (r^T J R Λ R^T r))] / ||dot_r||^2
             r_JR_Lambda_RT_r = r @ J @ R @ self.Lambda @ R.T @ r
-            g_r_dot_r = np.array([
+            g_r_dot_r = 2 * np.array([
                 -vel_vector[1] * r_JR_Lambda_RT_r,
                 vel_vector[0] * r_JR_Lambda_RT_r
             ]) / vel_norm_squared
@@ -216,7 +216,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
-         initial_obstacles=0,
+         initial_obstacles=10,
          #world_file=Path('worlds/tight_track.json'),
          num_steps=10000,
     )
