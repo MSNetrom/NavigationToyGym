@@ -73,8 +73,7 @@ class RotationalCBF2Order(FirstOrderGeneralLie):
         circle_centers = observation[5:].reshape(-1, 2)
         
         # For each obstacle, compute the barrier function
-        h_values = []
-        h_dot_values = []
+        psi_values = []
         Lg_psi_values = []
         Lf_psi_values = []
         
@@ -96,10 +95,10 @@ class RotationalCBF2Order(FirstOrderGeneralLie):
             # and it will be handled by Lg_psi
             
             # Compute h_dot = 2*dot_r^T R Λ R^T r
-            h_dot = 2 * vel_vector @ R @ self.Lambda @ R.T @ r
+            #h_dot = 2 * vel_vector @ R @ self.Lambda @ R.T @ r
             
             # Compute f(r, dot_r) = 2*dot_r^T R Λ R^T r
-            f_r_dot_r = h_dot
+            #f_r_dot_r = h_dot
             
             # Compute g(r, dot_r) term
             # This represents the coefficient of u in the CBF derivative
@@ -113,29 +112,27 @@ class RotationalCBF2Order(FirstOrderGeneralLie):
             ]) / vel_norm_squared
             
             # Compute psi = h_dot + p1 * h
-            psi = h_dot + self.p1 * h
+            #psi = h_dot + self.p1 * h
             
             # Compute Lf_psi (coefficient of time derivative without control input)
             # Only includes the effect of current velocity, not acceleration
-            Lf_psi = self.p1 * h_dot
+            #Lf_psi = self.p1 * h_dot
+
+            Lf_psi = 2 * vel_vector @ R @ self.Lambda @ R.T @ r
+            Lg_psi = g_r_dot_r
+            psi = h
             
             # Store values for this obstacle
-            h_values.append(h)
-            h_dot_values.append(h_dot)
-            Lg_psi_values.append(g_r_dot_r)
+            psi_values.append(psi)
+            Lg_psi_values.append(Lg_psi)
             Lf_psi_values.append(Lf_psi)
         
         # Convert to numpy arrays
-        h_values = np.array(h_values)
-        h_dot_values = np.array(h_dot_values)
+        psi_values = np.array(psi_values)
         Lg_psi_values = np.array(Lg_psi_values)
         Lf_psi_values = np.array(Lf_psi_values)
         
-        # Compute final psi
-        #psi = h_dot_values + self.p1 * h_values
-        psi = h
-        
-        return Lg_psi_values, Lf_psi_values, psi
+        return Lg_psi_values, Lf_psi_values, psi_values
 
 
 class DotDynamicsNormalRotationalCBF(DotDynamicsNormal):
@@ -193,12 +190,12 @@ if __name__ == "__main__":
     # Parameters
     U_MAX = 50
     DT = 1e-2
-    P = 0.1  # Safety region parameter (similar to radius)
-    LAMBDA1 = 0.5  # Longitudinal eigenvalue (in direction of motion)
-    LAMBDA2 = 2.0  # Lateral eigenvalue (perpendicular to motion)
-    P1 = 3.0  # CBF parameter
-    P2 = 2.01  # CBF parameter for control
-    K = 0.1  # Soft min parameter
+    P = 10  # Safety region parameter (similar to radius)
+    LAMBDA1 = 1  # Longitudinal eigenvalue (in direction of motion)
+    LAMBDA2 = 5  # Lateral eigenvalue (perpendicular to motion)
+    P1 = 1  # CBF parameter
+    P2 = 2  # CBF parameter for control
+    K = 2  # Soft min parameter
     
     # Initialize dynamics with rotational CBF
     dynamics = DotDynamicsNormalRotationalCBF(
@@ -219,6 +216,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
+         initial_obstacles=0,
          #world_file=Path('worlds/tight_track.json'),
          num_steps=10000,
     )

@@ -62,6 +62,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
+         initial_obstacles=10,
          #world_file=Path('worlds/tight_track.json'),
-         num_steps=10000,
+         num_steps=100000,
     )
