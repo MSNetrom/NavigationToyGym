@@ -196,11 +196,11 @@ if __name__ == "__main__":
     U_MAX = 50
     DT = 1e-2
     P = 10             # Safety region parameter (similar to a radius)
-    LAMBDA1 = 1        # Longitudinal eigenvalue (direction of motion)
-    LAMBDA2 = 2        # Lateral eigenvalue (perpendicular to motion)
-    BETA = 10           # Coefficient for the velocity breaking term
-    P2 = 2             # CBF parameter used in control
-    K = 0.5              # Soft-min parameter
+    LAMBDA1 = 0.5        # Longitudinal eigenvalue (direction of motion)
+    LAMBDA2 = 1.5        # Lateral eigenvalue (perpendicular to motion)
+    BETA = 1           # Coefficient for the velocity breaking term
+    P2 = 1             # CBF parameter used in control
+    K = 1              # Soft-min parameter
     
     # Initialize dynamics with the updated rotational CBF
     dynamics = DotDynamicsNormalRotationalCBF(

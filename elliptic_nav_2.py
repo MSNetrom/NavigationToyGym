@@ -10,7 +10,7 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
     k = 1/6
     #Lambda = np.array([[1, 0], [0, 1]])
     #k = 1/2
-    alpha_1 = 5
+    alpha_1 = 1
     epsilon = 10
 
     #lidar_vecs = lidar_vecs - 15*lidar_vecs/np.linalg.norm(lidar_vecs, axis=1)[:, np.newaxis]
@@ -60,15 +60,15 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
 
     # More calculations
     h = np.einsum('ni,nij,nj->n', r, P_1, r) - k**2 * np.einsum('ni,ni->n', s, s)**2 - epsilon
-
-    # Print minimum h
-    print("Minimum h:", np.min(h))
+    h_dot = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) - 4 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s, s, s_dots)
+    print("h min:", np.min(h))
 
     psi_1 = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) - 4*k**2 * np.einsum('ni,ni,nj,nj->n', s, s, s, s_dots) + alpha_1 * h
-    print("Psi1 min:", np.min(psi_1))
-
+    print("psi1 min:", np.min(psi_1))
     Lg_psi_1 = -2 * np.einsum('ni,nij->nj', r, P_1)
-    Lf_psi_1 = 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1), r) - 8 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s_dots, s, s_dots) - 4 * k ** 2 * np.einsum('ni,ni,nj,nj->n', s, s, s_dots, s_dots)
+
+    # Add alpha * h_dot here
+    Lf_psi_1 = 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1), r) - 8 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s_dots, s, s_dots) - 4 * k ** 2 * np.einsum('ni,ni,nj,nj->n', s, s, s_dots, s_dots) + alpha_1 * h_dot
 
     return Lg_psi_1, Lf_psi_1, psi_1
         
@@ -108,7 +108,7 @@ class DotDynamicsNormalSoftMin(DotDynamicsNormal):
                     constant_control: np.ndarray = None, k: float = 5):
         super().__init__(dt=dt, initial_state=initial_state, constant_control=constant_control)
         self.soft_min_cbf = SoftMinLie([MultiObjectCBF2OrderElliptic()], k=k)
-        self.p2 = 6
+        self.p2 = 1.1
 
     def perform_step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
 
@@ -124,7 +124,7 @@ if __name__ == "__main__":
     
     U_MAX = 50
      
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1e-3)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1)
 
     # Run the simulation
     runner(

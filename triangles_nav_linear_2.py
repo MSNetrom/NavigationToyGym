@@ -21,6 +21,7 @@ def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.nd
         lidars_shifted[:-1] = lidar_vecs[1:]
         lidars_shifted[-1] = lidar_vecs[0]
 
+
         # Create triangular constraints from lidar beams (N, 2)
         l_0 = np.zeros_like(lidar_vecs) # Start pos of line 1
         d_0 = lidar_vecs # Direction of line 1
@@ -28,6 +29,12 @@ def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.nd
         d_1 = lidars_shifted - lidar_vecs
         l_2 = lidars_shifted
         d_2 = - lidars_shifted
+
+        # Move the starting point a little bit backwards
+        l_0 = l_0 - 10 * d_0 / np.linalg.norm(d_0, axis=1)[:, np.newaxis]
+        d_0 = l_1 - l_0
+        d_1 = l_2 - l_1
+        d_2 = l_0 - l_2
 
         # Generate normal vectors
         normal_transformer = np.array([[0, -1],[1, 0]])
@@ -47,6 +54,35 @@ def traingles_solver_2d(u_ref: np.ndarray, states: np.ndarray, lidar_vecs: np.nd
         Lf_1 = 0
         h_dot_2 = np.sum(n_2 * vel_vector, axis=1)
         Lf_2 = 0
+
+        # Second order condition
+        psi_0 = h_dot_0 + p1 * h_0
+        psi_1 = h_dot_1 + p1 * h_1
+        psi_2 = h_dot_2 + p1 * h_2
+
+        # Filter thos psi's that are satisfied
+        psi_0_satisfied = psi_0 >= 0
+        psi_1_satisfied = psi_1 >= 0
+        psi_2_satisfied = psi_2 >= 0
+        psi_satisfied = psi_0_satisfied & psi_1_satisfied & psi_2_satisfied
+
+        n_0 = n_0[psi_satisfied]
+        n_1 = n_1[psi_satisfied]
+        n_2 = n_2[psi_satisfied]
+
+        h_0 = h_0[psi_satisfied]
+        h_1 = h_1[psi_satisfied]
+        h_2 = h_2[psi_satisfied]
+
+        h_dot_0 = h_dot_0[psi_satisfied]
+        h_dot_1 = h_dot_1[psi_satisfied]
+        h_dot_2 = h_dot_2[psi_satisfied]
+
+        #Lf_0 = Lf_0[psi_0_satisfied]
+        #Lf_1 = Lf_1[psi_1_satisfied]
+        #Lf_2 = Lf_2[psi_2_satisfied]
+
+
 
         # Create alphas and betas for alpha^T u >= beta
         alphas_0 = n_0

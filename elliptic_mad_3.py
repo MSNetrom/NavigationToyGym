@@ -6,12 +6,12 @@ from navigationgym import DotDynamicsNormal, runner
 
 def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
-    Lambda = np.array([[0.1, 0], [0, 10]])
-    k = 1/6
-    #Lambda = np.array([[1, 0], [0, 1]])
-    #k = 1/2
+    #Lambda = np.array([[0.1, 0], [0, 10]])
+    #k = 1/6
+    Lambda = np.array([[1, 0], [0, 1]])
+    k = 1/2
     alpha_1 = 5
-    epsilon = 10
+    epsilon = 20
 
     #lidar_vecs = lidar_vecs - 15*lidar_vecs/np.linalg.norm(lidar_vecs, axis=1)[:, np.newaxis]
     #print(lidar_vecs)
@@ -34,41 +34,52 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
     # Create s? Correct sign / direction? (N, 2)
     s = lidars_shifted - lidar_vecs
     s_dots = lidar_vec_dots_shifted - lidar_vec_dots
+    s_norm = np.linalg.norm(s, axis=1) # Shape (N,)
 
-    print("S1:", s[0])
+    print("s norm min:", np.min(s_norm))
 
     # Create r
     r = (lidars_shifted + lidar_vecs) / 2
     r_dots = (lidar_vec_dots_shifted + lidar_vec_dots) / 2
 
     # Vectorized approach to construct R_hat without a loop. This has shape (N, 2, 2)
-    R_hat = np.empty((s.shape[0], 2, 2))
-    R_hat[:, 0, 0] = s[:, 0]
-    R_hat[:, 0, 1] = -s[:, 1]
-    R_hat[:, 1, 0] = s[:, 1]
-    R_hat[:, 1, 1] = s[:, 0]
+    R = np.empty((s.shape[0], 2, 2))
+    R[:, 0, 0] = s[:, 0] / s_norm
+    R[:, 0, 1] = -s[:, 1] / s_norm
+    R[:, 1, 0] = s[:, 1] / s_norm
+    R[:, 1, 1] = s[:, 0] / s_norm
 
-    R_hat_dots = np.empty((s_dots.shape[0], 2, 2))
-    R_hat_dots[:, 0, 0] = s_dots[:, 0]
-    R_hat_dots[:, 0, 1] = -s_dots[:, 1]
-    R_hat_dots[:, 1, 0] = s_dots[:, 1]
-    R_hat_dots[:, 1, 1] = s_dots[:, 0]
+    R_dot = np.empty((s_dots.shape[0], 2, 2))
+    s_coeff = np.einsum('ni,ni->n', s, s_dots) / s_norm**3
+    R_dot[:, 0, 0] = s_dots[:, 0] / s_norm - s_coeff * s[:, 0]
+    R_dot[:, 0, 1] = -(s_dots[:, 1] / s_norm - s_coeff * s[:, 1])
+    R_dot[:, 1, 0] = s_dots[:, 1] / s_norm - s_coeff * s[:, 0]
+    R_dot[:, 1, 1] = s_dots[:, 0] / s_norm - s_coeff * s[:, 1]
+
+    R_dot_dot = np.empty((s_dots.shape[0], 2, 2))
+    s_coeff_2 = 3*np.einsum('ni,ni->n', s, s_dots) ** 2 / s_norm**5
+    s_coeff_3 = np.einsum('ni,ni->n', s_dots, s_dots) / s_norm**3
+    R_dot_dot[:, 0, 0] = s_coeff_2 * s[:, 0] - s_coeff_3 * s[:, 0] - 2*s_coeff * s_dots[:, 0]
+    R_dot_dot[:, 0, 1] = -(s_coeff_2 * s[:, 1] - s_coeff_3 * s[:, 1] - 2*s_coeff * s_dots[:, 1])
+    R_dot_dot[:, 1, 0] = s_coeff_2 * s[:, 1] - s_coeff_3 * s[:, 1] - 2*s_coeff * s_dots[:, 1]
+    R_dot_dot[:, 1, 1] = s_coeff_2 * s[:, 0] - s_coeff_3 * s[:, 0] - 2*s_coeff * s_dots[:, 0]
 
     # Calculate some P matrices for later use. They will have shape (N, 2, 2)
-    P_1 = R_hat @ Lambda @ R_hat.transpose(0, 2, 1)
-    P_2 = R_hat_dots @ Lambda @ R_hat.transpose(0, 2, 1)
+    P_1 = R @ Lambda @ R.transpose(0, 2, 1)
+    P_2 = R_dot @ Lambda @ R.transpose(0, 2, 1)
 
     # More calculations
-    h = np.einsum('ni,nij,nj->n', r, P_1, r) - k**2 * np.einsum('ni,ni->n', s, s)**2 - epsilon
+    h = np.einsum('ni,nij,nj->n', r, P_1, r) - 5**2 #k**2 * np.einsum('ni,ni->n', s, s) - epsilon
+    h_dot = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r)
 
     # Print minimum h
     print("Minimum h:", np.min(h))
 
-    psi_1 = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) - 4*k**2 * np.einsum('ni,ni,nj,nj->n', s, s, s, s_dots) + alpha_1 * h
+    psi_1 = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) + alpha_1 * h
     print("Psi1 min:", np.min(psi_1))
 
     Lg_psi_1 = -2 * np.einsum('ni,nij->nj', r, P_1)
-    Lf_psi_1 = 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1), r) - 8 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s_dots, s, s_dots) - 4 * k ** 2 * np.einsum('ni,ni,nj,nj->n', s, s, s_dots, s_dots)
+    Lf_psi_1 = 2 * np.einsum('ni,nij,nj->n', r, R_dot_dot @ Lambda @ R.transpose(0, 2, 1), r) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_dot @ Lambda @ R_dot.transpose(0, 2, 1), r) + alpha_1 * h_dot
 
     return Lg_psi_1, Lf_psi_1, psi_1
         

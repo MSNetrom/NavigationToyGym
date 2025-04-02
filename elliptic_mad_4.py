@@ -6,12 +6,15 @@ from navigationgym import DotDynamicsNormal, runner
 
 def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
-    Lambda = np.array([[0.1, 0], [0, 10]])
-    k = 1/6
+    k = 1.01
     #Lambda = np.array([[1, 0], [0, 1]])
-    #k = 1/2
-    alpha_1 = 5
-    epsilon = 10
+   # k = 1/2
+    alpha_1 = 12
+    epsilon = 1
+
+    # Extract the first 2 columns of lidar_vecs
+    #lidar_vecs = lidar_vecs[:, :2]
+    #lidar_vec_dots = lidar_vec_dots[:, :2]
 
     #lidar_vecs = lidar_vecs - 15*lidar_vecs/np.linalg.norm(lidar_vecs, axis=1)[:, np.newaxis]
     #print(lidar_vecs)
@@ -26,49 +29,51 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
     lidars_shifted[:-1] = lidar_vecs[1:]
     lidars_shifted[-1] = lidar_vecs[0]
 
+    print("Lidar vecs:", lidar_vecs)
+    print("Lidar shifted:", lidars_shifted)
+
     # Shift lidar_vec_dots, lidar_vec_dots[i] = lidar_vec_dots[i-1]
     lidar_vec_dots_shifted = np.zeros_like(lidar_vec_dots)
     lidar_vec_dots_shifted[:-1] = lidar_vec_dots[1:]
     lidar_vec_dots_shifted[-1] = lidar_vec_dots[0]
 
+    #Norms
+    lidar_vecs_norm = np.linalg.norm(lidar_vecs, axis=1)
+    lidars_shifted_norm = np.linalg.norm(lidars_shifted, axis=1)
+
+    # Dots
+    lidar_vecs_dot_lidar_dot_vecs = np.einsum('ni,ni->n', lidar_vecs, lidar_vec_dots)
+    lidars_shifted_dot_lidar_dot_vecs = np.einsum('ni,ni->n', lidars_shifted, lidar_vec_dots)
+
     # Create s? Correct sign / direction? (N, 2)
     s = lidars_shifted - lidar_vecs
     s_dots = lidar_vec_dots_shifted - lidar_vec_dots
+    s_norm = np.linalg.norm(s, axis=1) # Shape (N,)
+    s_dot_s_dot = np.einsum('ni,ni->n', s, s_dots)
 
-    print("S1:", s[0])
-
-    # Create r
-    r = (lidars_shifted + lidar_vecs) / 2
-    r_dots = (lidar_vec_dots_shifted + lidar_vec_dots) / 2
-
-    # Vectorized approach to construct R_hat without a loop. This has shape (N, 2, 2)
-    R_hat = np.empty((s.shape[0], 2, 2))
-    R_hat[:, 0, 0] = s[:, 0]
-    R_hat[:, 0, 1] = -s[:, 1]
-    R_hat[:, 1, 0] = s[:, 1]
-    R_hat[:, 1, 1] = s[:, 0]
-
-    R_hat_dots = np.empty((s_dots.shape[0], 2, 2))
-    R_hat_dots[:, 0, 0] = s_dots[:, 0]
-    R_hat_dots[:, 0, 1] = -s_dots[:, 1]
-    R_hat_dots[:, 1, 0] = s_dots[:, 1]
-    R_hat_dots[:, 1, 1] = s_dots[:, 0]
-
-    # Calculate some P matrices for later use. They will have shape (N, 2, 2)
-    P_1 = R_hat @ Lambda @ R_hat.transpose(0, 2, 1)
-    P_2 = R_hat_dots @ Lambda @ R_hat.transpose(0, 2, 1)
+    
 
     # More calculations
-    h = np.einsum('ni,nij,nj->n', r, P_1, r) - k**2 * np.einsum('ni,ni->n', s, s)**2 - epsilon
+    h = lidar_vecs_norm + lidars_shifted_norm - 2*k * s_norm - epsilon
+    h_dot = lidar_vecs_dot_lidar_dot_vecs / lidar_vecs_norm + lidars_shifted_dot_lidar_dot_vecs / lidars_shifted_norm - 2 * k * s_dot_s_dot / s_norm
 
     # Print minimum h
     print("Minimum h:", np.min(h))
+    # Give an extra dimension to the norms before using them for division
+    #lidar_vecs_norm = lidar_vecs_norm.reshape(-1, 1)
+    #lidars_shifted_norm = lidars_shifted_norm.reshape(-1, 1)
+    #s_norm = s_norm.reshape(-1, 1)
 
-    psi_1 = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) - 4*k**2 * np.einsum('ni,ni,nj,nj->n', s, s, s, s_dots) + alpha_1 * h
+    psi_1 = h_dot + alpha_1 * h
     print("Psi1 min:", np.min(psi_1))
 
-    Lg_psi_1 = -2 * np.einsum('ni,nij->nj', r, P_1)
-    Lf_psi_1 = 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1), r) - 8 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s_dots, s, s_dots) - 4 * k ** 2 * np.einsum('ni,ni,nj,nj->n', s, s, s_dots, s_dots)
+    Lg_psi_1 = - lidar_vecs / lidar_vecs_norm[:, np.newaxis] - lidars_shifted / lidars_shifted_norm[:, np.newaxis]
+    Lf_psi_1 = (- (lidar_vecs_dot_lidar_dot_vecs ** 2) / lidar_vecs_norm ** 3 + np.einsum('ni,ni->n', lidar_vec_dots, lidar_vec_dots) / lidar_vecs_norm
+                - (lidars_shifted_dot_lidar_dot_vecs ** 2) / lidars_shifted_norm ** 3 + np.einsum('ni,ni->n', lidar_vec_dots_shifted, lidar_vec_dots_shifted) / lidars_shifted_norm
+                + 2 * k * s_dot_s_dot ** 2 / s_norm ** 3 - 2 * k * np.einsum('ni,ni->n', s_dots, s_dots) / s_norm
+                + alpha_1 * h_dot)
+    
+
 
     return Lg_psi_1, Lf_psi_1, psi_1
         
@@ -104,11 +109,11 @@ class MultiObjectCBF2OrderElliptic(FirstOrderGeneralLie):
 
 class DotDynamicsNormalSoftMin(DotDynamicsNormal):
 
-    def __init__(self, dt: float, initial_state: np.ndarray = np.array([80.0, 80.0, 0.0, 0.0, 0.0]),
+    def __init__(self, dt: float, initial_state: np.ndarray = np.array([200.0, 200.0, 0.0, 0.0, 0.0]),
                     constant_control: np.ndarray = None, k: float = 5):
         super().__init__(dt=dt, initial_state=initial_state, constant_control=constant_control)
         self.soft_min_cbf = SoftMinLie([MultiObjectCBF2OrderElliptic()], k=k)
-        self.p2 = 6
+        self.p2 = 10
 
     def perform_step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
 
@@ -124,7 +129,7 @@ if __name__ == "__main__":
     
     U_MAX = 50
      
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1e-3)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1)
 
     # Run the simulation
     runner(
@@ -133,7 +138,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
-         initial_obstacles=10,
+         initial_obstacles=0,
          #world_file=Path('worlds/tight_track.json'),
          num_steps=100000,
     )

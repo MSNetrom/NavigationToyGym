@@ -8,10 +8,8 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
 
     Lambda = np.array([[0.1, 0], [0, 10]])
     k = 1/6
-    #Lambda = np.array([[1, 0], [0, 1]])
-    #k = 1/2
-    alpha_1 = 5
-    epsilon = 10
+    alpha_1 = 1
+    epsilon = 1
 
     #lidar_vecs = lidar_vecs - 15*lidar_vecs/np.linalg.norm(lidar_vecs, axis=1)[:, np.newaxis]
     #print(lidar_vecs)
@@ -35,8 +33,6 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
     s = lidars_shifted - lidar_vecs
     s_dots = lidar_vec_dots_shifted - lidar_vec_dots
 
-    print("S1:", s[0])
-
     # Create r
     r = (lidars_shifted + lidar_vecs) / 2
     r_dots = (lidar_vec_dots_shifted + lidar_vec_dots) / 2
@@ -59,16 +55,11 @@ def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> t
     P_2 = R_hat_dots @ Lambda @ R_hat.transpose(0, 2, 1)
 
     # More calculations
-    h = np.einsum('ni,nij,nj->n', r, P_1, r) - k**2 * np.einsum('ni,ni->n', s, s)**2 - epsilon
+    h = r @ P_1 @ r - k**2 * np.dot(s, s, axis=1)**2 - epsilon
+    psi_1 = 2 * r_dots @ P_1 @ r + 2 * r @ P_2 @ r - 4*k**2 * np.dot(s, s, axis=1) * np.dot(s, s_dots) + alpha_1 * h
 
-    # Print minimum h
-    print("Minimum h:", np.min(h))
-
-    psi_1 = 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r) + 2 * np.einsum('ni,nij,nj->n', r, P_2, r) - 4*k**2 * np.einsum('ni,ni,nj,nj->n', s, s, s, s_dots) + alpha_1 * h
-    print("Psi1 min:", np.min(psi_1))
-
-    Lg_psi_1 = -2 * np.einsum('ni,nij->nj', r, P_1)
-    Lf_psi_1 = 4 * np.einsum('ni,nij,nj->n', r_dots, P_2, r_dots) + 4 * np.einsum('ni,nij,nj->n', r_dots, P_2.transpose(0, 2, 1), r) + 2 * np.einsum('ni,nij,nj->n', r_dots, P_1, r_dots) + 2 * np.einsum('ni,nij,nj->n', r, R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1), r) - 8 * k**2 * np.einsum('ni,ni,nj,nj->n', s, s_dots, s, s_dots) - 4 * k ** 2 * np.einsum('ni,ni,nj,nj->n', s, s, s_dots, s_dots)
+    Lg_psi_1 = -2 * r @ P_1
+    Lf_psi_1 = 4 * r_dots @ P_2 @ r_dots + 4 * r_dots @ P_2.transpose(0, 2, 1) @ r + 2 * r_dots @ P_1 @ r_dots + 2 * r @ R_hat_dots @ Lambda @ R_hat_dots.transpose(0, 2, 1) @ r - 8 * k**2 * np.dot(s, s_dots, axis=1) ** 2 - 4 * k ** 2 * np.dot(s, s, axis=1) * np.dot(s_dots, s_dots, axis=1)
 
     return Lg_psi_1, Lf_psi_1, psi_1
         
@@ -85,7 +76,7 @@ class MultiObjectCBF2OrderElliptic(FirstOrderGeneralLie):
         circle_centers = observation[5:].reshape(-1, 2)
 
         lidar_vecs = circle_centers - pos_vector
-        lidar_vec_dots = - np.tile(vel_vector, (lidar_vecs.shape[0], 1))
+        lidar_vec_dots = np.tile(vel_vector, (lidar_vecs.shape[0], 1))
 
         Lg_psi_1, Lf_psi_1, psi_1 = elliptic_contructer(lidar_vecs, lidar_vec_dots)
 
@@ -108,7 +99,6 @@ class DotDynamicsNormalSoftMin(DotDynamicsNormal):
                     constant_control: np.ndarray = None, k: float = 5):
         super().__init__(dt=dt, initial_state=initial_state, constant_control=constant_control)
         self.soft_min_cbf = SoftMinLie([MultiObjectCBF2OrderElliptic()], k=k)
-        self.p2 = 6
 
     def perform_step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
 
@@ -124,7 +114,7 @@ if __name__ == "__main__":
     
     U_MAX = 50
      
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1e-3)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, k=1)
 
     # Run the simulation
     runner(
