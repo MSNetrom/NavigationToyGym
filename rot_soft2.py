@@ -195,11 +195,11 @@ if __name__ == "__main__":
     # Parameters
     U_MAX = 50
     DT = 1e-2
-    P = 10             # Safety region parameter (similar to a radius)
+    P = 5             # Safety region parameter (similar to a radius)
     LAMBDA1 = 0.5        # Longitudinal eigenvalue (direction of motion)
     LAMBDA2 = 1.5        # Lateral eigenvalue (perpendicular to motion)
-    BETA = 1           # Coefficient for the velocity breaking term
-    P2 = 1             # CBF parameter used in control
+    BETA = 80           # Coefficient for the velocity breaking term
+    P2 = 10             # CBF parameter used in control
     K = 1              # Soft-min parameter
     
     # Initialize dynamics with the updated rotational CBF
@@ -221,7 +221,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
-         initial_obstacles=10,
-         #world_file=Path('worlds/tight_track.json'),
+         #initial_obstacles=10,
+         world_file=Path('worlds/tight_track.json'),
          num_steps=10000,
     )

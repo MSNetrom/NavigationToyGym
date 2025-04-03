@@ -6,8 +6,8 @@ from navigationgym import DotDynamicsNormal, runner
 
 def elliptic_contructer(lidar_vecs: np.ndarray, lidar_vec_dots: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
-    Lambda = np.array([[0.5, 0], [0, 2]])
-    k = 1/4
+    Lambda = np.array([[0.1, 0], [0, 10]])
+    k = 1/6
     #Lambda = np.array([[1, 0], [0, 1]])
    # k = 1/2
     alpha_1 = 5

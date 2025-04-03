@@ -24,11 +24,11 @@ y_vals = np.linspace(c[1] - grid_range, c[1] + grid_range, 400)
 X, Y = np.meshgrid(x_vals, y_vals)
 
 # Compute the distances from each grid point to the foci.
-D1 = np.sqrt((X - F1[0])**2 + (Y - F1[1])**2)
-D2 = np.sqrt((X - F2[0])**2 + (Y - F2[1])**2)
+D1 = (X - F1[0])**2 + (Y - F1[1])**2
+D2 = (X - F2[0])**2 + (Y - F2[1])**2
 
 # Define H such that the ellipse is given by H(x,y) = 0.
-H = D1 + D2 - 2 * a
+H = D1 + D2 - (2 * a)**2
 
 # Plotting the ellipse.
 plt.figure(figsize=(8, 6))
