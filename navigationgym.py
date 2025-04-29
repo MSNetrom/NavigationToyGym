@@ -938,7 +938,8 @@ if __name__ == "__main__":
 
     # Example: Using your soft-min CBF controlled vehicle dynamics (from soft_min_nav_linear.py)
     from soft_min_nav_linear import DotDynamicsNormalSoftMin
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2.01, k=0.1)
+    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+                                        initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
 
     # Create dynamic obstacles.
     # For "static" obstacles, simply set their speed to zero.
