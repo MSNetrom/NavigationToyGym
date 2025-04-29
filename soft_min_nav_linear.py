@@ -29,6 +29,36 @@ class MultiObjectCBF2Order(FirstOrderGeneralLie):
         return Lg_psi, Lf_psi, psi
     
 
+class Order2RelativeSpeedCBF(FirstOrderGeneralLie):
+
+    def __init__(self, radius: float, u_max: float, p1: float, lidar_num: int):
+        self.radius = radius
+        self.u_max = u_max
+        self.p1 = p1
+        self.lidar_num = lidar_num
+
+    def get_Lg_Lf_and_psi(self, observation: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+
+        epsilon = 0
+        #pos_vector = 0
+        #vel_vector = observation[3:5]
+
+        r = observation[5:5+2*self.lidar_num].reshape(-1, 2)
+        r_dot = observation[-2*self.lidar_num:].reshape(-1, 2)
+        #r_dot = -observation[3:5].reshape(-1, 2)
+
+        #print((pos_vector - circle_centers).shape)
+        h = np.sum(r ** 2, axis=1) - self.radius ** 2 - epsilon
+        h_dot = 2*np.sum(r * r_dot, axis=1)
+
+        psi = h_dot + self.p1 * h
+        Lf_psi = 2*np.sum(r_dot * r_dot, axis=1) + 2*self.p1*np.sum(r * r_dot, axis=1)
+
+        Lg_psi = - 2 * r
+
+        return Lg_psi, Lf_psi, psi
+    
+
 class DotDynamicsNormalSoftMin(DotDynamicsNormal):
 
     def __init__(self, dt: float, radius: float, u_max: float, p1: float, p2: float, initial_state: np.ndarray = np.array([80.0, 80.0, 0.0, 0.0, 0.0]),
@@ -48,6 +78,29 @@ class DotDynamicsNormalSoftMin(DotDynamicsNormal):
         u_safe = single_exponential_cbf_solver(u_ref=u, Lg_psi=Lg_psi, Lf_psi=Lf_psi, psi=psi, p1=self.p2)
 
         return super().perform_step(u_safe, observation)
+    
+class DotDynamicsSpeedSoftMin(DotDynamicsNormal):
+
+    def __init__(self, dt: float, radius: float, u_max: float, p1: float, p2: float, 
+                 lidar_num: int,
+                 initial_state: np.ndarray = np.array([80.0, 80.0, 0.0, 0.0, 0.0]),
+                    constant_control: np.ndarray = None, k: float = 5):
+        super().__init__(dt=dt, initial_state=initial_state, constant_control=constant_control)
+        self.soft_min_cbf = SoftMinLie([Order2RelativeSpeedCBF(radius, u_max, p1, lidar_num)], k=k)
+        self.radius = radius
+        self.u_max = u_max
+        self.p2 = p2
+
+    def perform_step(self, u: np.ndarray, observation: np.ndarray) -> np.ndarray:
+
+        # Get constraints
+        Lg_psi, Lf_psi, psi = self.soft_min_cbf.get_Lg_Lf_and_psi(observation)
+
+        # Calculate optimal control
+        u_safe = single_exponential_cbf_solver(u_ref=u, Lg_psi=Lg_psi, Lf_psi=Lf_psi, psi=psi, p1=self.p2)
+
+        return super().perform_step(u_safe, observation)
+
     
 if __name__ == "__main__":
     

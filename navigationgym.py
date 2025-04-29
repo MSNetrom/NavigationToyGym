@@ -176,6 +176,7 @@ class ConstantSpeedObstacle(Dynamics):
         return {
             'type': 'circle',     # You can choose an appropriate type.
             'pos': pos,
+            'vel': self.integrator.states[2:4],
             'radius': self.radius,
             'color': self.color
         }
@@ -252,24 +253,24 @@ class SimulationEnv(gym.Env):
     ):
         super(SimulationEnv, self).__init__()
 
-        # Initialize the base environment (agent/vehicle)
+        # Initialize the vehicle environment.
         self.env = Env(dynamics)
         self.render_mode = render
         self.border_margin = border_margin
         self.num_lidar = num_lidar
         self.lidar_distance = lidar_distance
 
-        # Instead of static obstacles, use only the dynamic ones
+        # Use only dynamic obstacles.
         self.dynamic_obstacles = dynamic_obstacles if dynamic_obstacles is not None else []
 
-        # Rendering setup
+        # Rendering setup.
         pygame.init()
         self.WIDTH, self.HEIGHT = 800, 600
         if self.render_mode:
             self.screen = pygame.display.set_mode((self.WIDTH, self.HEIGHT))
             pygame.display.set_caption("Gymnasium Simulation Environment")
 
-        # Colors and drawing properties
+        # Colors and drawing properties.
         self.WHITE = (255, 255, 255)
         self.BLACK = (0, 0, 0)
         self.RED = (255, 0, 0)
@@ -280,8 +281,8 @@ class SimulationEnv(gym.Env):
         self.dot_radius = 0
         self.dot_color = self.RED
 
-        # Define inner boundary for the simulation window
-        bar_area_width = 100  # Space for side displays etc.
+        # Define inner boundary—for example, using a rectangle.
+        bar_area_width = 100
         self.INNER_RECT = pygame.Rect(
             self.border_margin,
             self.border_margin,
@@ -295,54 +296,47 @@ class SimulationEnv(gym.Env):
         self.font = pygame.font.SysFont(None, 24)
         self.bar1_value = 0.0
         self.bar2_value = 0.0
-        self.bar1_max = u_max if u_max is not None else 1.0
-        self.bar2_max = u_max if u_max is not None else 1.0
+        self.bar1_max = 100.0   # Set a default maximum value for bar1.
+        self.bar2_max = 100.0   # Set a default maximum value for bar2.
 
-        # Observation space: vehicle state + lidar vector
-        lidar_low = np.full(2 * self.num_lidar, -self.lidar_distance, dtype=np.float32)
-        lidar_high = np.full(2 * self.num_lidar, self.lidar_distance, dtype=np.float32)
+        # Update the observation space.
+        # Here, we now include:
+        #   - Vehicle state (assume 6 values: e.g. [x,y,theta,vx,vy,?]) 
+        #   - Lidar positions: 2 values per beam.
+        #   - Lidar velocities: 1 value per beam.
+        # (Adjust the vehicle state size and bounds as necessary.)
+        vehicle_low = np.array([border_margin, border_margin, -500.0, -500.0, -math.pi, -500.0], dtype=np.float32)
+        vehicle_high = np.array([self.WIDTH - border_margin, self.HEIGHT - border_margin, 500.0, 500.0, math.pi, 500.0], dtype=np.float32)
+        lidar_pos_low = np.full(2 * self.num_lidar, -self.lidar_distance, dtype=np.float32)
+        lidar_pos_high = np.full(2 * self.num_lidar, self.lidar_distance, dtype=np.float32)
+        # For relative velocity, we assume a reasonable bound; adjust as needed.
+        lidar_vel_low = np.full(self.num_lidar, -500.0, dtype=np.float32)
+        lidar_vel_high = np.full(self.num_lidar, 500.0, dtype=np.float32)
         self.observation_space = spaces.Box(
-            low=np.concatenate((
-                np.array([border_margin, border_margin, -500.0, -500.0, -math.pi, -500.0], dtype=np.float32),
-                lidar_low
-            )),
-            high=np.concatenate((
-                np.array([800 - border_margin, 600 - border_margin, 500.0, 500.0, math.pi, 500.0], dtype=np.float32),
-                lidar_high
-            )),
+            low=np.concatenate((vehicle_low, lidar_pos_low, lidar_vel_low)),
+            high=np.concatenate((vehicle_high, lidar_pos_high, lidar_vel_high)),
             dtype=np.float32
         )
 
     def ray_circle_intersection(self, x, y, ray_angle, circle_x, circle_y, circle_radius):
         """
-        Compute the distance along the ray (starting at (x, y) in direction ray_angle)
-        at which the ray intersects the circle defined by center (circle_x, circle_y) and
-        radius circle_radius. Returns None if there is no intersection in the forward direction.
+        Compute and return the distance along the ray (from (x,y) in direction ray_angle)
+        to the circle defined by center (circle_x, circle_y) and radius.
+        Returns None if there is no intersection in the forward direction.
         """
-        # Compute ray direction components.
         dx = math.cos(ray_angle)
         dy = math.sin(ray_angle)
-        
-        # Translate the circle into the ray frame.
         ox = x - circle_x
         oy = y - circle_y
-        
-        # Coefficients for the quadratic equation: A*t^2 + B*t + C = 0
         A = dx**2 + dy**2
         B = 2 * (dx * ox + dy * oy)
         C = ox**2 + oy**2 - circle_radius**2
-        
-        discriminant = B**2 - 4 * A * C
-        
-        if discriminant < 0:
-            # No real intersection.
+        disc = B**2 - 4 * A * C
+        if disc < 0:
             return None
-        
-        sqrt_disc = math.sqrt(discriminant)
+        sqrt_disc = math.sqrt(disc)
         t1 = (-B - sqrt_disc) / (2 * A)
         t2 = (-B + sqrt_disc) / (2 * A)
-        
-        # We only care about intersections in the forward direction (t >= 0).
         t_candidates = [t for t in [t1, t2] if t >= 0]
         if not t_candidates:
             return None
@@ -351,15 +345,13 @@ class SimulationEnv(gym.Env):
 
     def ray_wall_intersection(self, x, y, ray_angle):
         """
-        Compute the distance along the ray from (x, y) in the direction ray_angle to the inner boundary (wall).
-        Here, we consider self.INNER_RECT as the wall.
+        Compute the distance from (x,y) along the ray (with angle ray_angle)
+        where it intersects the inner boundary (used as the wall).
         Returns None if no intersection is found.
         """
         dx = math.cos(ray_angle)
         dy = math.sin(ray_angle)
         t_values = []
-        
-        # Check intersection with vertical boundaries (left and right)
         if not math.isclose(dx, 0, abs_tol=1e-6):
             t_left = (self.INNER_RECT.left - x) / dx
             t_right = (self.INNER_RECT.right - x) / dx
@@ -367,8 +359,6 @@ class SimulationEnv(gym.Env):
                 t_values.append(t_left)
             if t_right >= 0:
                 t_values.append(t_right)
-                
-        # Check intersection with horizontal boundaries (top and bottom)
         if not math.isclose(dy, 0, abs_tol=1e-6):
             t_top = (self.INNER_RECT.top - y) / dy
             t_bottom = (self.INNER_RECT.bottom - y) / dy
@@ -376,10 +366,12 @@ class SimulationEnv(gym.Env):
                 t_values.append(t_top)
             if t_bottom >= 0:
                 t_values.append(t_bottom)
-        
         if not t_values:
             return None
         return min(t_values)
+    
+
+
     
 
     def update_dynamic_obstacles(self):
@@ -420,68 +412,103 @@ class SimulationEnv(gym.Env):
 
         return False, 0.0
 
-    def get_lidar_relative_vectors(self):
+    def get_lidar_sensor_readings(self):
         """
-        Compute lidar-like relative vectors in the vehicle's coordinate frame,
-        considering only dynamic obstacles.
+        Compute two sorts of lidar quantities:
+         1. The relative positions of the beam intersection points in the vehicle's LiDAR frame.
+         2. The full relative 2D velocity vector for the beam intersection point,
+            computed as (obstacle_vel - vehicle_vel) in the vehicle's frame.
+
+        Assumes:
+         - Vehicle state structure: [x, y, theta, vx, vy, ...]
+         - Each dynamic obstacle's to_dict() returns a dictionary that includes:
+             'pos': [ox, oy] and 'vel': [ovx, ovy]
         """
-        x, y, theta, *_ = self.env.states
-        lidar_rel_vectors = np.zeros((self.num_lidar, 2), dtype=np.float32)
+        state = self.env.states
+        # Unpack vehicle state: (x, y, theta, vx, vy, ...). Adjust indices if needed.
+        x, y, theta, vx, vy = state[:5]
+        # Allocate positions and velocities in the vehicle (lidar) frame.
+        lidar_positions = np.zeros((self.num_lidar, 2), dtype=np.float32)
+        lidar_velocities = np.zeros((self.num_lidar, 2), dtype=np.float32)
+        # Compute beam angles in the vehicle frame.
         angles = np.linspace(0, 2 * math.pi, self.num_lidar, endpoint=False)
-
-        # Convert each dynamic obstacle to dict format.
-        all_obstacles = [obs.to_dict() for obs in self.dynamic_obstacles]
-
+        
         for i, lidar_angle in enumerate(angles):
             world_angle = lidar_angle + theta
             max_distance = self.lidar_distance
-            min_dist = max_distance
-            for obs in all_obstacles:
-                if obs['type'] == 'circle':
-                    dist = self.ray_circle_intersection(
-                        x, y, world_angle,
-                        obs['pos'][0], obs['pos'][1],
-                        obs['radius'] + self.dot_radius
-                    )
-                    if dist is not None and dist < min_dist:
-                        min_dist = dist
-            wall_dist = self.ray_wall_intersection(x, y, world_angle)
-            if wall_dist is not None and wall_dist < min_dist:
-                min_dist = wall_dist
-            rel_x = min_dist * math.cos(lidar_angle)
-            rel_y = min_dist * math.sin(lidar_angle)
-            lidar_rel_vectors[i] = [rel_x, rel_y]
-        return lidar_rel_vectors
+            min_distance = max_distance
+            hit_obstacle = None  # will store the dictionary of the obstacle that is hit (if any)
+
+            # Check all dynamic obstacles.
+            for obs in self.dynamic_obstacles:
+                obs_dict = obs.to_dict()  # Assumes obs_dict contains 'pos', 'radius', and 'vel'
+                d = self.ray_circle_intersection(
+                    x, y, world_angle,
+                    obs_dict['pos'][0], obs_dict['pos'][1],
+                    obs_dict['radius']
+                )
+                if d is not None and d < min_distance:
+                    min_distance = d
+                    hit_obstacle = obs_dict
+
+            # Also check for wall intersection.
+            wall_distance = self.ray_wall_intersection(x, y, world_angle)
+            if wall_distance is not None and wall_distance < min_distance:
+                min_distance = wall_distance
+                hit_obstacle = None  # wall is considered static
+
+            # Compute the relative position (in the vehicle's LiDAR frame).
+            # Note: lidar_angle is already in the vehicle frame.
+            lidar_positions[i, 0] = min_distance * math.cos(lidar_angle)
+            lidar_positions[i, 1] = min_distance * math.sin(lidar_angle)
+
+            # Compute the full 2D relative velocity.
+            if hit_obstacle is not None and 'vel' in hit_obstacle:
+                obs_vel = np.array(hit_obstacle['vel'])      # Obstacle velocity in world frame.
+                vehicle_vel = np.array([vx, vy])               # Vehicle velocity in world frame.
+                rel_vel_world = obs_vel - vehicle_vel           # Relative velocity in world frame.
+                # Rotate relative velocity into the vehicle (lidar) frame.
+                # The rotation by -theta converts world-frame vectors to vehicle frame.
+                cos_th = math.cos(theta)
+                sin_th = math.sin(theta)
+                R_inv = np.array([[cos_th, sin_th],
+                                  [-sin_th, cos_th]])
+                rel_vel_vehicle = R_inv @ rel_vel_world
+                lidar_velocities[i, :] = rel_vel_vehicle
+            else:
+                # For the wall (or no hit), assume relative velocity to be based of the vehicle's velocity
+                lidar_velocities[i, :] = - np.array([0, 0])
+        
+        return lidar_positions, lidar_velocities
 
     def step(self, action: np.ndarray, observation: np.ndarray, i):
         """
-        Perform one simulation step.
-        First, update all dynamic obstacles.
-        Then, process the vehicle's control input.
+        Perform one simulation step:
+           - First update the dynamic obstacles.
+           - Then update the vehicle state.
+           - Finally, compute the sensor measurements.
         """
         self.update_dynamic_obstacles()  # update obstacles
 
-        u = action
-        new_state = self.env.step(u, observation)
-        lidar_rel_vectors = self.get_lidar_relative_vectors()
+        new_state = self.env.step(action, observation)
+        # Get both lidar positions and relative velocities.
+        lidar_positions, lidar_velocities = self.get_lidar_sensor_readings()
         reward = 0.0
-        done = False
         crash, dist = self.check_collision(new_state)
         info = {"crash": crash, "crash_distance": dist}
-        observation = np.concatenate((new_state, lidar_rel_vectors.flatten())).astype(np.float32)
-        return observation, reward, done, info
+        # Build observation as:
+        # [vehicle_state, lidar_positions.flatten(), lidar_velocities.flatten()]
+        observation = np.concatenate((new_state, lidar_positions.flatten(), lidar_velocities.flatten())).astype(np.float32)
+        return observation, reward, False, info
 
     def reset(self):
         """
-        Reset the vehicle and return the initial observation.
+        Reset the vehicle and return initial observation, including sensor readings.
         """
         self.env.reset()
         initial_state = self.env.states.copy()
-        print("Initial State:", initial_state)
-        lidar_rel_vectors = self.get_lidar_relative_vectors()
-        self.bar1_value = 0.0
-        self.bar2_value = 0.0
-        observation = np.concatenate((initial_state, lidar_rel_vectors.flatten())).astype(np.float32)
+        lidar_positions, lidar_velocities = self.get_lidar_sensor_readings()
+        observation = np.concatenate((initial_state, lidar_positions.flatten(), lidar_velocities.flatten())).astype(np.float32)
         return observation, {}
 
     def draw_figure(self, fig):
@@ -666,23 +693,38 @@ class SimulationEnv(gym.Env):
 
     def draw_lidar(self):
         """
-        Draw lidar lines on the screen.
+        Draw lidar beams and intersection points.
+        Uses the sensor method to obtain the intersection positions.
         """
-        x, y, theta, *_ = self.env.states
-        lidar_rel_vectors = self.get_lidar_relative_vectors()
+        # Get the sensor readings (relative positions and velocities; we use positions for drawing).
+        positions, _ = self.get_lidar_sensor_readings()  # positions shape: (num_lidar, 2)
 
-        # Rotate relative vectors to world frame for drawing
-        cos_theta = math.cos(theta)
-        sin_theta = math.sin(theta)
-        rotation_matrix = np.array([[cos_theta, -sin_theta], [sin_theta, cos_theta]])
+        # Retrieve the vehicle state: [x, y, theta, ...].
+        state = self.env.states
+        x, y, theta = state[:3]
+        cos_th = math.cos(theta)
+        sin_th = math.sin(theta)
 
-        for rel_vector in lidar_rel_vectors:
+        # Build the 2x2 rotation matrix to transform from vehicle frame to world frame.
+        rotation_matrix = np.array([[cos_th, -sin_th],
+                                    [sin_th,  cos_th]])
+
+        for i in range(self.num_lidar):
+            # Relative position from the lidar sensor (in the vehicle frame).
+            rel_vector = positions[i]  # A (2,) vector.
+            # Transform the relative vector to the world frame.
             world_vector = rotation_matrix @ rel_vector
-            end_x = x + world_vector[0]
-            end_y = y + world_vector[1]
-            pygame.draw.line(self.screen, self.LIDAR_COLOR, (int(x), int(y)), (int(end_x), int(end_y)), 1)
-            # Draw small circles at the end points
-            pygame.draw.circle(self.screen, self.LIDAR_COLOR, (int(end_x), int(end_y)), 3)
+            world_coords = np.array([x, y]) + world_vector
+
+            # Draw the beam from the vehicle's position to the intersection point.
+            pygame.draw.line(self.screen, self.LIDAR_COLOR,
+                             (int(x), int(y)),
+                             (int(world_coords[0]), int(world_coords[1])),
+                             1)
+            # Draw the intersection point as a small circle.
+            pygame.draw.circle(self.screen, self.LIDAR_COLOR,
+                               (int(world_coords[0]), int(world_coords[1])),
+                               2)
 
     def render_frame(self):
         """
@@ -935,11 +977,16 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
 if __name__ == "__main__":
     U_MAX = 50
+    LIDAR_BEAMS = 64
 
     # Example: Using your soft-min CBF controlled vehicle dynamics (from soft_min_nav_linear.py)
-    from soft_min_nav_linear import DotDynamicsNormalSoftMin
-    dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+    from soft_min_nav_linear import DotDynamicsSpeedSoftMin, DotDynamicsNormalSoftMin
+    dynamics = DotDynamicsSpeedSoftMin(dt=1e-2, radius=10, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+                                        lidar_num=LIDAR_BEAMS,
                                         initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
+    
+    #dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+    #                                    initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
 
     # Create dynamic obstacles.
     # For "static" obstacles, simply set their speed to zero.
@@ -961,7 +1008,7 @@ if __name__ == "__main__":
     runner(
          dynamics=dynamics,
          lidar_distance=130,
-         lidar_num=64,
+         lidar_num=LIDAR_BEAMS,
          u_max=U_MAX,
          render=True,
          #results_path=Path("results"),
