@@ -109,6 +109,7 @@ class DotDynamicsNonSpeedSoftMin(DotDynamicsNormal):
     
 
 if __name__ == "__main__":
+
     U_MAX = 50
     LIDAR_BEAMS = 64
     DT = 1e-2
@@ -119,23 +120,12 @@ if __name__ == "__main__":
                                         lidar_num=LIDAR_BEAMS, constant_control=np.array([0.0, 0.0]),
                                         initial_state=np.array([400.0, 300.0, 0.0, 0.0, 0.0]))
     
-    #dynamics = DotDynamicsNonSpeedSoftMin(dt=DT, radius=1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
-    #                                    lidar_num=LIDAR_BEAMS,
-    #                                    initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
-
-    # Create dynamic obstacles.
-    # For "static" obstacles, simply set their speed to zero.
-    #from dynamic_obstacle import ConstantSpeedObstacle
     dynamic_obs1 = ConstantSpeedObstacle(
          initial_state=np.array([500.0, 300.0, -50.0, 0.0]),  # Speed set to zero = static
          dt=1e-2,
          radius=15,
          color=(0, 0, 255)
     )
-
-
-
-
 
     # Run simulation with only dynamic obstacles.
     runner(
@@ -144,8 +134,33 @@ if __name__ == "__main__":
          lidar_num=LIDAR_BEAMS,
          u_max=U_MAX,
          render=True,
-         results_path=Path("results"),
+         results_path=Path("results/relative_speed"),
          num_steps=500,
          dynamic_obstacles=[dynamic_obs1],
          dt=DT
     )
+    
+    dynamics = DotDynamicsNonSpeedSoftMin(dt=DT, radius=1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+                                        lidar_num=LIDAR_BEAMS, constant_control=np.array([0.0, 0.0]),
+                                        initial_state=np.array([400.0, 300.0, 0.0, 0.0, 0.0]))
+    
+    dynamic_obs1 = ConstantSpeedObstacle(
+         initial_state=np.array([500.0, 300.0, -50.0, 0.0]),  # Speed set to zero = static
+         dt=1e-2,
+         radius=15,
+         color=(0, 0, 255)
+    )
+
+    # Run simulation with only dynamic obstacles.
+    runner(
+         dynamics=dynamics,
+         lidar_distance=130,
+         lidar_num=LIDAR_BEAMS,
+         u_max=U_MAX,
+         render=True,
+         results_path=Path("results/non_relative_speed"),
+         num_steps=500,
+         dynamic_obstacles=[dynamic_obs1],
+         dt=DT
+    )
+
