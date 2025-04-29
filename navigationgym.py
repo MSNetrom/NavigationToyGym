@@ -971,7 +971,156 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         u_actual_track[i] = u_used
 
     # (Plotting and saving results remain unchanged.)
-    ...
+    # Do plotting and stuff
+
+    if results_path is not None:
+
+        # Set global font sizes
+        plt.rcParams.update({
+            'font.size': 18,          # Default text size
+            'axes.titlesize': 22,     # Axes title size
+            'axes.labelsize': 20,     # Axes label size
+            'legend.fontsize': 18,    # Legend font size
+            'xtick.labelsize': 16,    # X-axis tick label size
+            'ytick.labelsize': 16,    # Y-axis tick label size
+        })
+
+        # Create directory if it doesn't exist
+        results_path.mkdir(parents=True, exist_ok=True)
+
+        fig_list = []
+
+        for i in range(0, num_steps, 10):
+            pos = observation_track[i][:2]
+            fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (138,43,226)})
+
+        # Create drawings in pygame
+        #for i in range(0, num_steps, 50):
+        #    start = observation_track[i][:2]
+            #fig_list.append({"type": "arrow", "start": start, "end": start + u_ref_track[i][:2], "color": (255, 120, 120)})
+        #    fig_list.append({"type": "arrow", "start": start, "end": start + u_actual_track[i][:2], "color": (50, 205, 50)})
+
+        #fig_list.append({"type": "arrow", "start": [600, 500], "end": [600, 500] + u_ref_track[0][:2], "color": (255, 120, 120)})
+
+        sim_env.render_final_figures(fig_list, results_path / "track.png")
+
+        # Calculate u mean squared error, and save to json
+        u_mse = np.mean((u_ref_track - u_actual_track) ** 2)
+        with open(results_path / "results.json", "w") as f:
+            json.dump({"u_mse": u_mse}, f)
+
+        # Create plots of u_ref and u_actual
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        #r'$\alpha_1$'
+        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$')
+        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$')
+
+        # Mark the point in which we reach x > 550 and y > 450 using a red vertical line
+        cross_index = np.where((observation_track[:, 0] > 550) & (observation_track[:, 1] > 450))[0]
+
+        if len(cross_index) > 0:
+            ax[0].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
+
+        ax[0].set_title(r'$u_x$')
+        #Set position as down left
+        ax[0].legend(loc='lower left')
+        ax[0].grid()
+        ax[0].set_xlabel("Time [s]")
+        ax[0].set_ylabel("Acceleration")
+
+        #ax[1].plot(u_ref_track[:, 1], label=r'$u_\text{ref}$')
+        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$')
+        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$')
+
+        if len(cross_index) > 0:
+            ax[1].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
+
+        ax[1].set_title(r'$u_y$')
+        ax[1].legend(loc='lower left')
+        ax[1].grid()
+        ax[1].set_xlabel("Time [s]")
+        ax[1].set_ylabel("Acceleration")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "u_plots.pdf")
+        plt.close()
+
+        # Create plot for u size
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+        u_ref_size = np.linalg.norm(u_ref_track, axis=1)
+        u_actual_size = np.linalg.norm(u_actual_track, axis=1)
+
+        ax.plot(u_ref_size, label=r'$u_\text{ref}$')
+        ax.plot(u_actual_size, label=r'$u_\text{actual}$')
+        ax.set_title(r'$\|u|\$')
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("Time Steps")
+        ax.set_ylabel("Acceleration")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "u_size_plot.pdf")
+        plt.close()
+
+        # Create plots for velocity
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        ax[0].plot(observation_track[:, 3], label="v_x")
+        ax[0].set_title("Velocity x")
+        ax[0].legend()
+        ax[0].grid()
+        ax[0].set_xlabel("Time Steps")
+        ax[0].set_ylabel("Velocity")
+
+        ax[1].plot(observation_track[:, 4], label="v_y")
+        ax[1].set_title("Velocity y")
+        ax[1].legend()
+        ax[1].grid()
+        ax[1].set_xlabel("Time Steps")
+        ax[1].set_ylabel("Velocity")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "velocity_plots.pdf")
+        plt.close()
+
+        # Plot for velocity size
+        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+
+        velocity_size = np.linalg.norm(observation_track[:, 3:5], axis=1)
+
+        ax.plot(velocity_size, label="Velocity")
+        ax.set_title("Velocity Size")
+        ax.legend()
+        ax.grid()
+        ax.set_xlabel("Time Steps")
+        ax.set_ylabel("Velocity")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "velocity_size_plot.pdf")
+        plt.close()
+
+        # Create plots for position
+        fig, ax = plt.subplots(2, 1, figsize=(10, 8))
+
+        ax[0].plot(observation_track[:, 0], label="x")
+        ax[0].set_title("Position x")
+        ax[0].legend()
+        ax[0].grid()
+        ax[0].set_xlabel("Time Steps")
+        ax[0].set_ylabel("Position")
+
+        ax[1].plot(observation_track[:, 1], label="y")
+        ax[1].set_title("Position y")
+        ax[1].legend()
+        ax[1].grid()
+        ax[1].set_xlabel("Time Steps")
+        ax[1].set_ylabel("Position")
+
+        plt.tight_layout()
+        fig.savefig(results_path / "position_plots.pdf")
+        plt.close()
 
     sim_env.close()
 
