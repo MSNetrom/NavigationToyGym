@@ -263,6 +263,13 @@ class SimulationEnv(gym.Env):
         # Use only dynamic obstacles.
         self.dynamic_obstacles = dynamic_obstacles if dynamic_obstacles is not None else []
 
+        # Set up obstacle tracking:
+        if self.dynamic_obstacles:
+            # Create a list for each obstacle's track
+            self.obstacle_tracks = [[] for _ in self.dynamic_obstacles]
+        else:
+            self.obstacle_tracks = []
+
         # Rendering setup.
         pygame.init()
         self.WIDTH, self.HEIGHT = 800, 600
@@ -763,8 +770,20 @@ class SimulationEnv(gym.Env):
         self.bar1_value = val1
         self.bar2_value = val2
 
+    def record_obstacles(self):
+        """
+        Record the current positions of all dynamic obstacles.
+        Each dynamic obstacle's position (first two entries of its state array)
+        is appended to the corresponding track.
+        """
+        # Initialize the tracks if not done already.
+        if not hasattr(self, "obstacle_tracks") or not self.obstacle_tracks:
+            self.obstacle_tracks = [[] for _ in range(len(self.dynamic_obstacles))]
+        for idx, obs in enumerate(self.dynamic_obstacles):
+            # We assume each obstacle's state is structured as [x, y, ...]
+            current_pos = obs.integrator.states[:2].copy()  # Copy to avoid mutability issues
+            self.obstacle_tracks[idx].append(current_pos)
 
-    
 
 
 class BicycleCarDynamics(Dynamics):
@@ -970,6 +989,9 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         u_ref_track[i] = u
         u_actual_track[i] = u_used
 
+        # Record the current positions of all dynamic obstacles.
+        sim_env.record_obstacles()
+
     # (Plotting and saving results remain unchanged.)
     # Do plotting and stuff
 
@@ -994,13 +1016,11 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
             pos = observation_track[i][:2]
             fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (138,43,226)})
 
-        # Create drawings in pygame
-        #for i in range(0, num_steps, 50):
-        #    start = observation_track[i][:2]
-            #fig_list.append({"type": "arrow", "start": start, "end": start + u_ref_track[i][:2], "color": (255, 120, 120)})
-        #    fig_list.append({"type": "arrow", "start": start, "end": start + u_actual_track[i][:2], "color": (50, 205, 50)})
-
-        #fig_list.append({"type": "arrow", "start": [600, 500], "end": [600, 500] + u_ref_track[0][:2], "color": (255, 120, 120)})
+        # Plot the obstacles' trajectories:
+        if sim_env.obstacle_tracks:
+            for track in sim_env.obstacle_tracks:
+                for pos in track[::10]:  # Taking every 10th recorded position for clarity.
+                    fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (255, 165, 0)})
 
         sim_env.render_final_figures(fig_list, results_path / "track.png")
 
@@ -1141,7 +1161,7 @@ if __name__ == "__main__":
     # For "static" obstacles, simply set their speed to zero.
     #from dynamic_obstacle import ConstantSpeedObstacle
     dynamic_obs1 = ConstantSpeedObstacle(
-         initial_state=np.array([400.0, 300.0, -20.0, 0.0]),  # Speed set to zero = static
+         initial_state=np.array([400.0, 300.0, -50.0, 0.0]),  # Speed set to zero = static
          dt=1e-2,
          radius=15,
          color=(0, 0, 255)

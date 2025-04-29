@@ -111,21 +111,23 @@ class DotDynamicsNonSpeedSoftMin(DotDynamicsNormal):
 if __name__ == "__main__":
     U_MAX = 50
     LIDAR_BEAMS = 64
+    DT = 1e-2
 
     # Example: Using your soft-min CBF controlled vehicle dynamics (from soft_min_nav_linear.py)
 
-    dynamics = DotDynamicsSpeedSoftMin(dt=1e-2, radius=1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
-                                        lidar_num=LIDAR_BEAMS,
-                                        initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
+    dynamics = DotDynamicsSpeedSoftMin(dt=DT, radius=1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+                                        lidar_num=LIDAR_BEAMS, constant_control=np.array([0.0, 0.0]),
+                                        initial_state=np.array([400.0, 300.0, 0.0, 0.0, 0.0]))
     
-    #dynamics = DotDynamicsNormalSoftMin(dt=1e-2, radius=0.1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+    #dynamics = DotDynamicsNonSpeedSoftMin(dt=DT, radius=1, u_max=U_MAX, p1=3, p2=2.01, k=0.1,
+    #                                    lidar_num=LIDAR_BEAMS,
     #                                    initial_state=np.array([200.0, 300.0, 0.0, 20.0, 0.0]))
 
     # Create dynamic obstacles.
     # For "static" obstacles, simply set their speed to zero.
     #from dynamic_obstacle import ConstantSpeedObstacle
     dynamic_obs1 = ConstantSpeedObstacle(
-         initial_state=np.array([400.0, 300.0, -20.0, 0.0]),  # Speed set to zero = static
+         initial_state=np.array([500.0, 300.0, -50.0, 0.0]),  # Speed set to zero = static
          dt=1e-2,
          radius=15,
          color=(0, 0, 255)
@@ -144,5 +146,6 @@ if __name__ == "__main__":
          render=True,
          results_path=Path("results"),
          num_steps=500,
-         dynamic_obstacles=[dynamic_obs1]
+         dynamic_obstacles=[dynamic_obs1],
+         dt=DT
     )
