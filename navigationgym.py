@@ -1014,7 +1014,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         for i in range(0, num_steps, 10):
             pos = observation_track[i][:2]
-            fig_list.append({"type": "circle", "pos": pos, "radius": 2, "color": (138,43,226)})
+            fig_list.append({"type": "circle", "pos": pos, "radius": 6, "color": (138,43,226)})
 
         # Plot the obstacles' trajectories:
         if sim_env.obstacle_tracks:
