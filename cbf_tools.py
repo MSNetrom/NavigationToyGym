@@ -29,12 +29,22 @@ class SoftMinLie(FirstOrderGeneralLie):
         self.first_order_cbfs = first_order_cbfs
         self.k = k
 
+        self.h_track = []
+        self.psi_track = []
+
+    def get_h_and_psi(self):
+        return self.h_track, self.psi_track
+
     def get_Lg_Lf_and_psi(self, states: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        original_Lg_psis, original_Lf_psis, original_psis = zip(*[cbf.get_Lg_Lf_and_psi(states) for cbf in self.first_order_cbfs])
+        original_Lg_psis, original_Lf_psis, original_psis, original_hs = zip(*[cbf.get_Lg_Lf_and_psi(states) for cbf in self.first_order_cbfs])
         # Concatenate all CBF components
         Lg_psis = np.concatenate([original_Lg_psi for original_Lg_psi in original_Lg_psis], axis=0)
         Lf_psis = np.concatenate([original_Lf_psi for original_Lf_psi in original_Lf_psis], axis=0)
         psis = np.concatenate([original_psi for original_psi in original_psis], axis=0)
+        hs = np.concatenate([original_h for original_h in original_hs], axis=0)
+
+        self.h_track.append(hs.min(axis=0))
+        self.psi_track.append(psis.min(axis=0))
 
         #return Lg_psis, - Lf_psis - self.p1 * psis
 

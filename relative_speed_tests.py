@@ -30,7 +30,7 @@ class Order2RelativeSpeedCBF(FirstOrderGeneralLie):
 
         Lg_psi = - 2 * r
 
-        return Lg_psi, Lf_psi, psi
+        return Lg_psi, Lf_psi, psi, h
     
 
 class Order2NonRelativeSpeedCBF(FirstOrderGeneralLie):
@@ -60,7 +60,7 @@ class Order2NonRelativeSpeedCBF(FirstOrderGeneralLie):
 
         Lg_psi = - 2 * r
 
-        return Lg_psi, Lf_psi, psi
+        return Lg_psi, Lf_psi, psi, h
     
 class DotDynamicsSpeedSoftMin(DotDynamicsNormal):
 
@@ -84,6 +84,9 @@ class DotDynamicsSpeedSoftMin(DotDynamicsNormal):
 
         return super().perform_step(u_safe, observation)
     
+    def get_h_and_psi(self):
+        return self.soft_min_cbf.get_h_and_psi()
+    
 
 class DotDynamicsNonSpeedSoftMin(DotDynamicsNormal):
 
@@ -106,6 +109,9 @@ class DotDynamicsNonSpeedSoftMin(DotDynamicsNormal):
         u_safe = single_exponential_cbf_solver(u_ref=u, Lg_psi=Lg_psi, Lf_psi=Lf_psi, psi=psi, p1=self.p2)
 
         return super().perform_step(u_safe, observation)
+    
+    def get_h_and_psi(self):
+        return self.soft_min_cbf.get_h_and_psi()
     
 
 if __name__ == "__main__":

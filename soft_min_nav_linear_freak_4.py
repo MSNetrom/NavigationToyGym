@@ -19,38 +19,20 @@ class MultiObjectCBF2Order(FirstOrderGeneralLie):
         lidar_vecs = observation[5:].reshape(-1, 2)
         lidar_vecs_dot = np.zeros_like(lidar_vecs) - vel_vector
 
-        # Create variables for later use
-        # Shift lidar vecs, lidar_vec[i] = lidar_vec[i-1]
-        lidars_shifted = np.zeros_like(lidar_vecs)
-        lidars_shifted[:-1] = lidar_vecs[1:]
-        lidars_shifted[-1] = lidar_vecs[0]
+        lidar_vec_length = np.linalg.norm(lidar_vecs, axis=1)
 
-        lidars_shifted_dot = np.zeros_like(lidar_vecs_dot)
-        lidars_shifted_dot[:-1] = lidar_vecs_dot[1:]
-        lidars_shifted_dot[-1] = lidar_vecs_dot[0]
+        r_diff = lidar_vec_length - self.radius
 
-        # Create usefull vectors
-        lidar_vecs_norm = np.linalg.norm(lidar_vecs, axis=1)
-        lidars_shifted_norm = np.linalg.norm(lidars_shifted, axis=1)
-        
-        # Compute the h and stuff
-        h = np.einsum('ij,ij->i', lidar_vecs, lidars_shifted) + lidar_vecs_norm * lidars_shifted_norm - epsilon
-        h_dot = np.einsum('ij,ij->i', lidar_vecs_dot, lidars_shifted) + np.einsum('ij,ij->i', lidar_vecs, lidars_shifted_dot) + np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) * lidars_shifted_norm / lidar_vecs_norm + np.einsum('ij,ij->i', lidars_shifted, lidars_shifted_dot) * lidar_vecs_norm / lidars_shifted_norm
-        
+        r_perp = r_diff * (lidar_vecs_dot - np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2)
 
-        psi = h_dot + self.p1 * h
+        temp_perf_Lf = (lidar_vec_length - self.radius) * (2 * np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) ** 2 * lidar_vecs / lidar_vec_length ** 4 - np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs_dot / lidar_vec_length ** 2 - np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2) + (lidar_vecs_dot - np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2)*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs) / lidar_vec_length
 
-        Lg_psi = - lidar_vecs - lidars_shifted - lidar_vecs_norm[:, np.newaxis] * lidars_shifted / lidars_shifted_norm[:, np.newaxis] - lidars_shifted_norm[:, np.newaxis] * lidar_vecs / lidar_vecs_norm[:, np.newaxis]
-        #Lf_psi = 2 * np.einsum('ij,ij->i', lidar_vecs_dot, lidars_shifted_dot) - np.einsum('ij,ij->i', lidar_vecs_dot, lidar_vecs) ** 2 * lidars_shifted_norm / lidar_vecs_norm ** 3 + 2 * np.einsum('ij,ij->i', lidar_vecs_dot, lidar_vecs_dot) * lidars_shifted_norm / lidar_vecs_norm + 2 * np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) * np.einsum('ij,ij->i', lidars_shifted, lidars_shifted_dot) / (lidar_vecs_norm * lidars_shifted_norm) - np.einsum('ij,ij->i', lidars_shifted, lidars_shifted_dot) ** 2 * lidar_vecs_norm / lidar_vecs_norm ** 3 + np.einsum('ij,ij->i', lidars_shifted_dot, lidars_shifted_dot) * lidar_vecs_norm / lidar_vecs_norm + self.p1 * h_dot
+        Lf_psi = 2*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs_dot) + 2*self.p1*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs) + np.einsum('i,i->i', temp_perf_Lf, lidar_vecs_dot)
 
-        # Corrected L_fψ calculation
-        term1 = 2 * np.einsum('ij,ij->i', lidar_vecs_dot, lidars_shifted_dot)
-        term2 = - (np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot)**2 * lidars_shifted_norm) / (lidar_vecs_norm**3)
-        term3 = (np.einsum('ij,ij->i', lidar_vecs_dot, lidar_vecs_dot) * lidars_shifted_norm) / lidar_vecs_norm  # Removed factor of 2
-        term4 = 2 * (np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) * np.einsum('ij,ij->i', lidars_shifted, lidars_shifted_dot)) / (lidar_vecs_norm * lidars_shifted_norm)
-        term5 = - (np.einsum('ij,ij->i', lidars_shifted, lidars_shifted_dot)**2 * lidar_vecs_norm) / (lidars_shifted_norm**3)  # Fixed denominator
-        term6 = (np.einsum('ij,ij->i', lidars_shifted_dot, lidars_shifted_dot) * lidar_vecs_norm) / lidars_shifted_norm  # Added division
-        Lf_psi = term1 + term2 + term3 + term4 + term5 + term6 + self.p1 * h_dot
+        Lg_psi = -2*r_perp - 2*lidar_vecs
+
+        psi = np.einsum('i,i->i', r_perp, lidar_vecs_dot) + 2*np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) + self.p1*(lidar_vec_length**2 - self.radius**2)
+
 
         return Lg_psi, Lf_psi, psi
     
@@ -92,7 +74,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
-         #initial_obstacles=20,
-         world_file=Path('worlds/random_track_quadrant.json'),
+         initial_obstacles=20,
+         #world_file=Path('worlds/random_track_quadrant.json'),
          num_steps=100000,
     )

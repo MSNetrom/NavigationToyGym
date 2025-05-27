@@ -1010,6 +1010,14 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         # Create directory if it doesn't exist
         results_path.mkdir(parents=True, exist_ok=True)
 
+        # Define colors for different control inputs
+        COLORS = {
+            "u_safe": "green",
+            "u_filtered": "blue",
+            "u_actual": "orange",
+            "u_ref": "purple",
+        }
+
         fig_list = []
 
         for i in range(0, num_steps, 10):
@@ -1033,8 +1041,8 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         fig, ax = plt.subplots(2, 1, figsize=(10, 8))
 
         #r'$\alpha_1$'
-        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$')
-        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$')
+        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$', color=COLORS["u_ref"])
+        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$', color=COLORS["u_actual"])
 
         # Mark the point in which we reach x > 550 and y > 450 using a red vertical line
         cross_index = np.where((observation_track[:, 0] > 550) & (observation_track[:, 1] > 450))[0]
@@ -1050,8 +1058,8 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         ax[0].set_ylabel("Acceleration")
 
         #ax[1].plot(u_ref_track[:, 1], label=r'$u_\text{ref}$')
-        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$')
-        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$')
+        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$', color=COLORS["u_ref"])
+        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$', color=COLORS["u_actual"])
 
         if len(cross_index) > 0:
             ax[1].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
@@ -1067,14 +1075,14 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         plt.close()
 
         # Create plot for u size
-        fig, ax = plt.subplots(1, 1, figsize=(10, 8))
+        fig, ax = plt.subplots(1, 1, figsize=(12, 4))
 
         u_ref_size = np.linalg.norm(u_ref_track, axis=1)
         u_actual_size = np.linalg.norm(u_actual_track, axis=1)
 
-        ax.plot(u_ref_size, label=r'$u_\text{ref}$')
-        ax.plot(u_actual_size, label=r'$u_\text{actual}$')
-        ax.set_title(r'$\|u|\$')
+        ax.plot(u_ref_size, label=r'$u_\text{ref}$', color=COLORS["u_ref"])
+        ax.plot(u_actual_size, label=r'$u_\text{actual}$', color=COLORS["u_actual"])
+        ax.set_title('$\|u\|$')
         ax.legend()
         ax.grid()
         ax.set_xlabel("Time Steps")
@@ -1140,6 +1148,28 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
 
         plt.tight_layout()
         fig.savefig(results_path / "position_plots.pdf")
+        plt.close()
+
+        # Create plot for h and psi
+        h_track, psi_track = dynamics.get_h_and_psi()
+        
+        plt.figure(figsize=(12, 4))
+        plt.plot(h_track, label="$\psi_{min}$", linewidth=2)
+        plt.plot(psi_track, label="$h_{min}$", linewidth=2)
+        plt.legend(fontsize=14)
+        plt.xlabel("Time Steps", fontsize=14)
+        plt.ylabel("Value", fontsize=14) 
+        plt.title("Min CBF Plot", fontsize=14)
+        plt.xticks(fontsize=12)
+        plt.yticks(fontsize=12)
+        plt.grid(True)
+        
+        # Set y-axis maximum limit
+        plt.ylim(top=1000)  # Replace 50 with your desired maximum value
+        #plt.xlim(left=0)
+        
+        plt.tight_layout()
+        plt.savefig(results_path / "min_cbf_plot.pdf", bbox_inches='tight')
         plt.close()
 
     sim_env.close()

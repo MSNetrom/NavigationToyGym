@@ -32,85 +32,26 @@ class MultiObjectCBF2Order(FirstOrderGeneralLie):
     
     def get_Lg_Lf_and_psi(self, observation: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
 
-        epsilon = 5
+        epsilon = 1
 
         vel_vector = observation[3:5]
         lidar_vecs = observation[5:].reshape(-1, 2)
-        print(lidar_vecs)
         lidar_vecs_dot = np.zeros_like(lidar_vecs) - vel_vector
 
-        # Create variables for later use
-        # Shift lidar vecs, lidar_vec[i] = lidar_vec[i-1]
-        lidars_shifted = np.zeros_like(lidar_vecs)
-        lidars_shifted[:-1] = lidar_vecs[1:]
-        lidars_shifted[-1] = lidar_vecs[0]
+        lidar_vec_length = np.linalg.norm(lidar_vecs, axis=1)
 
-        lidars_shifted_dot = np.zeros_like(lidar_vecs_dot)
-        lidars_shifted_dot[:-1] = lidar_vecs_dot[1:]
-        lidars_shifted_dot[-1] = lidar_vecs_dot[0]
+        r_diff = lidar_vec_length - self.radius
 
-        # Create triangular constraints from lidar beams (N, 2)
-        l_1 = lidar_vecs
-        s = lidars_shifted - lidar_vecs
-        s_dot = lidars_shifted_dot - lidar_vecs_dot
-        l_2 = lidars_shifted
+        r_perp = r_diff * (lidar_vecs_dot - np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2)
 
-        normal_transformer = np.array([[0, -1], [1, 0]])
-        n = s @ normal_transformer.T
-        n_dot = s_dot @ normal_transformer.T
-        n_norm = np.linalg.norm(n, axis=1)
+        temp_perf_Lf = (lidar_vec_length - self.radius) * (2 * np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) ** 2 * lidar_vecs / lidar_vec_length ** 4 - np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs_dot / lidar_vec_length ** 2 - np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2) + (lidar_vecs_dot - np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) * lidar_vecs / lidar_vec_length ** 2)*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs) / lidar_vec_length
 
+        Lf_psi = 2*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs_dot) + 2*self.p1*np.einsum('i,i->i', lidar_vecs_dot, lidar_vecs) + np.einsum('i,i->i', temp_perf_Lf, lidar_vecs_dot)
 
-        d = n / n_norm[:, np.newaxis]
-        d_dot = n_dot / n_norm[:, np.newaxis] - np.einsum('ij,ij->i', n, n_dot)[:, np.newaxis] * n / n_norm[:, np.newaxis]**3
-        d_dot_dot = - 2 * np.einsum('ij,ij->i', n, n_dot)[:, np.newaxis] * n_dot / n_norm[:, np.newaxis]**3 - np.einsum('ij,ij->i', n_dot, n_dot)[:, np.newaxis] * n / n_norm[:, np.newaxis]**3 + 3 * np.einsum('ij,ij->i', n, n_dot)[:, np.newaxis] ** 2 * n / n_norm[:, np.newaxis]**5
+        Lg_psi = -2*r_perp - 2*lidar_vecs
 
-        # Find the angles between l1 s and l2 s
-        l1_s_angle = angle_between_vectors(lidar_vecs, s)
-        l2_s_angle = angle_between_vectors(lidars_shifted, s)
+        psi = np.einsum('i,i->i', r_perp, lidar_vecs_dot) + 2*np.einsum('i,i->i', lidar_vecs, lidar_vecs_dot) + self.p1*(lidar_vec_length**2 - self.radius**2)
 
-        # Calculate the possible Lg_psi and Lf_psi
-        lidar_vecs_norm = np.linalg.norm(lidar_vecs, axis=1)
-        h_0 = lidar_vecs_norm - epsilon
-        h_0_dot = np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) / lidar_vecs_norm
-
-        psi_0 = h_0_dot + self.p1 * h_0
-        Lg_psi_0 = - lidar_vecs / lidar_vecs_norm[:, np.newaxis]
-        Lf_psi_0 = np.einsum('ij,ij->i', lidar_vecs_dot, lidar_vecs_dot) / lidar_vecs_norm - np.einsum('ij,ij->i', lidar_vecs, lidar_vecs_dot) ** 2 / lidar_vecs_norm**3 + self.p1 * h_0_dot
-
-        h_1 = - np.einsum('ij,ij->i', d, lidar_vecs) - epsilon
-        h_1_dot = - np.einsum('ij,ij->i', d_dot, lidar_vecs) - np.einsum('ij,ij->i', d, lidar_vecs_dot)
-
-        psi_1 = h_1_dot + self.p1 * h_1
-        Lg_psi_1 = d
-        Lf_psi_1 = - np.einsum('ij,ij->i', d_dot_dot, lidar_vecs) - 2*np.einsum('ij,ij->i', d_dot, lidar_vecs_dot) + self.p1 * h_1_dot
-
-        # Print minimum h_0 and h_1
-
-        # If the angle between l1 and s is more than 90 degrees and bigger than the angle between l2 and s, then use psi_0(l_i) and Lg_psi_0(l_i), Lf_psi_0(l_i)
-        # If the angle between l2 and s is more than 90 degrees and bigger than the angle between l1 and s, then use psi_0(l_i+1) and Lg_psi_0(l_i+1), Lf_psi_0(l_i+1)
-        # Otherwise, use psi_1(l_i) and Lg_psi_1(l_i), Lf_psi_1(l_i)
-
-        psi_0_shifted = np.zeros_like(psi_0)
-        psi_0_shifted[:-1] = psi_0[1:]
-        psi_0_shifted[-1] = psi_0[0]
-
-        Lg_psi_0_shifted = np.zeros_like(Lg_psi_0)
-        Lg_psi_0_shifted[:-1] = Lg_psi_0[1:]
-        Lg_psi_0_shifted[-1] = Lg_psi_0[0]
-
-        Lf_psi_0_shifted = np.zeros_like(Lf_psi_0)
-        Lf_psi_0_shifted[:-1] = Lf_psi_0[1:]
-        Lf_psi_0_shifted[-1] = Lf_psi_0[0]
-
-        l1_s_bigger_than_90 = l1_s_angle > np.pi/2
-        l2_s_bigger_than_90 = l2_s_angle > np.pi/2
-
-        l1_bigger_than_l2 = l1_s_angle > l2_s_angle
-
-        psi = psi_0 * (l1_s_bigger_than_90 & l1_bigger_than_l2) + psi_0_shifted * (l2_s_bigger_than_90 & ~l1_bigger_than_l2) + psi_1 * (~l1_s_bigger_than_90 & ~l2_s_bigger_than_90)
-        Lg_psi = Lg_psi_0 * (l1_s_bigger_than_90 & l1_bigger_than_l2)[:, np.newaxis] + Lg_psi_0_shifted * (l2_s_bigger_than_90 & ~l1_bigger_than_l2)[:, np.newaxis] + Lg_psi_1 * (~l1_s_bigger_than_90 & ~l2_s_bigger_than_90)[:, np.newaxis]
-        Lf_psi = Lf_psi_0 * (l1_s_bigger_than_90 & l1_bigger_than_l2) + Lf_psi_0_shifted * (l2_s_bigger_than_90 & ~l1_bigger_than_l2) + Lf_psi_1 * (~l1_s_bigger_than_90 & ~l2_s_bigger_than_90)
 
         return Lg_psi, Lf_psi, psi
     
@@ -152,7 +93,7 @@ if __name__ == "__main__":
          lidar_num=64,
          u_max=U_MAX,
          render=True,
-         initial_obstacles=0,
+         initial_obstacles=20,
          #world_file=Path('worlds/tight_track.json'),
-         num_steps=100000,
+         num_steps=10000,
     )
