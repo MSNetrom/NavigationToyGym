@@ -31,9 +31,10 @@ class SoftMinLie(FirstOrderGeneralLie):
 
         self.h_track = []
         self.psi_track = []
+        self.softmin_track = []
 
     def get_h_and_psi(self):
-        return self.h_track, self.psi_track
+        return self.h_track, self.psi_track, self.softmin_track
 
     def get_Lg_Lf_and_psi(self, states: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
         original_Lg_psis, original_Lf_psis, original_psis, original_hs = zip(*[cbf.get_Lg_Lf_and_psi(states) for cbf in self.first_order_cbfs])
@@ -52,6 +53,8 @@ class SoftMinLie(FirstOrderGeneralLie):
         ins = -self.k * psis
         logsumexp_val = sp.special.logsumexp(ins)
         combined_psi = - logsumexp_val / self.k
+
+        self.softmin_track.append(combined_psi)
 
         # Correct coefficient calculation using logsumexp for numerical stability
         coeffs = np.exp(ins - logsumexp_val)

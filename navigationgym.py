@@ -1151,11 +1151,11 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         plt.close()
 
         # Create plot for h and psi
-        h_track, psi_track = dynamics.get_h_and_psi()
-        
+        h_track, psi_track, softmin_track = dynamics.get_h_and_psi()
         plt.figure(figsize=(12, 4))
         plt.plot(h_track, label="$\psi_{min}$", linewidth=2)
         plt.plot(psi_track, label="$h_{min}$", linewidth=2)
+        plt.plot(softmin_track, label="$\phi=softmin(h_1, \ldots, h_n)$", linewidth=2)
         plt.legend(fontsize=14)
         plt.xlabel("Time Steps", fontsize=14)
         plt.ylabel("Value", fontsize=14) 
