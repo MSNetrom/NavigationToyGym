@@ -1041,8 +1041,8 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         fig, ax = plt.subplots(2, 1, figsize=(10, 8))
 
         #r'$\alpha_1$'
-        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_\text{ref}$', color=COLORS["u_ref"])
-        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_\text{actual}$', color=COLORS["u_actual"])
+        ax[0].plot(np.arange(num_steps)*dt, u_ref_track[:, 0], label=r'$u_{ref}$', color=COLORS["u_ref"])
+        ax[0].plot(np.arange(num_steps)*dt, u_actual_track[:, 0], label=r'$u_{safe}$', color=COLORS["u_safe"])
 
         # Mark the point in which we reach x > 550 and y > 450 using a red vertical line
         cross_index = np.where((observation_track[:, 0] > 550) & (observation_track[:, 1] > 450))[0]
@@ -1058,8 +1058,8 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         ax[0].set_ylabel("Acceleration")
 
         #ax[1].plot(u_ref_track[:, 1], label=r'$u_\text{ref}$')
-        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_\text{ref}$', color=COLORS["u_ref"])
-        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_\text{actual}$', color=COLORS["u_actual"])
+        ax[1].plot(np.arange(num_steps)*dt, u_ref_track[:, 1], label=r'$u_{ref}$', color=COLORS["u_ref"])
+        ax[1].plot(np.arange(num_steps)*dt, u_actual_track[:, 1], label=r'$u_{safe}$', color=COLORS["u_safe"])
 
         if len(cross_index) > 0:
             ax[1].axvline(x=cross_index[0]*dt, color='red', linestyle='--', label="Goal")
@@ -1081,7 +1081,7 @@ def runner(dynamics: Dynamics, lidar_distance: float, lidar_num: int, u_max: flo
         u_actual_size = np.linalg.norm(u_actual_track, axis=1)
 
         ax.plot(u_ref_size, label=r'$u_\text{ref}$', color=COLORS["u_ref"])
-        ax.plot(u_actual_size, label=r'$u_\text{actual}$', color=COLORS["u_actual"])
+        ax.plot(u_actual_size, label=r'$u_\text{safe}$', color=COLORS["u_safe"])
         ax.set_title('$\|u\|$')
         ax.legend()
         ax.grid()
